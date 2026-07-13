@@ -1,0 +1,46 @@
+[
+  {
+    "q": "How do I join Kareconnect?",
+    "a": "To join: reply JOIN on WhatsApp/SMS, or open the join link (QR) and submit your details."
+  },
+  {
+    "q": "INFO",
+    "a": "Reply INFO, MENU, or COMMANDS for the full command list. On many SMS lines HELP is reserved by the carrier — use INFO, MENU, or COMMANDS instead."
+  },
+  {
+    "q": "MENU",
+    "a": "Same as INFO — send INFO, MENU, or COMMANDS alone for the full Kareconnect command list."
+  },
+  {
+    "q": "Can I change my language?",
+    "a": "Yes. Send LANG for the language menu, or reply with the language name directly: English, Pidgin, Hausa, Igbo, or Yoruba. You can also use codes like LANG PCM."
+  },
+  {
+    "q": "Is this only for pregnant women?",
+    "a": "No. Kareconnect supports maternal and newborn care, chronic disease follow-up, youth health, kidney care, appointments, and telehealth for other patients too."
+  },
+  {
+    "q": "What foods should I eat during pregnancy?",
+    "a": "During pregnancy, aim for balanced meals with beans, eggs, fish, meat, vegetables, fruits, and whole grains, and drink enough safe water. Ask your clinician before using herbs or supplements, and seek urgent care for bleeding, severe headache, swelling, or reduced baby movement."
+  },
+  {
+    "q": "How do I stop messages?",
+    "a": "Reply STOP to pause messages. Reply START to resume."
+  },
+  {
+    "q": "Is this service free?",
+    "a": "Kareconnect messages may be free or billed depending on your network and the channel used. Ask your clinic for details."
+  },
+  {
+    "q": "I have danger signs in pregnancy",
+    "a": "If you have severe bleeding, severe headache, blurred vision, fits, fever, or reduced baby movement, go to the nearest facility immediately or request a telehealth call by replying: ESCALATE URGENT"
+  },
+  {
+    "q": "I need an appointment",
+    "a": "Reply APPOINT plus a short reason (e.g. APPOINT antenatal). Choose video telesession or clinic visit; we check availability."
+  },
+  {
+    "q": "I want remote monitoring",
+    "a": "Reply: RPM <condition>. Example: RPM hypertension"
+  }
+]

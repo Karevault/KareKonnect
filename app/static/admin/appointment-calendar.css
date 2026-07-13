@@ -1,0 +1,199 @@
+/* Appointment calendar — day / week / month + drag-drop */
+
+.appt-cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.appt-cal-toolbar .btn-group .btn.active {
+  background: var(--hc-admin-accent, #0d9488);
+  border-color: var(--hc-admin-accent, #0d9488);
+  color: #fff;
+}
+
+.appt-cal-nav-label {
+  font-weight: 600;
+  min-width: 10rem;
+  text-align: center;
+}
+
+.appt-cal-hint {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-bottom: 0.75rem;
+}
+
+.appt-pending-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.5rem;
+  background: #fff8e6;
+  border: 1px dashed #f59f00;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.appt-pending-pool.is-drag-over {
+  background: #ffecbc;
+  border-color: #d97706;
+}
+
+.appt-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+}
+
+.appt-cal-grid.week-view .appt-cal-day {
+  min-height: 14rem;
+}
+
+.appt-cal-dow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6c757d;
+  text-align: center;
+  padding: 0.25rem;
+}
+
+.appt-cal-day {
+  min-height: 7.5rem;
+  border: 1px solid #e6e7e9;
+  border-radius: 6px;
+  padding: 0.35rem;
+  background: #fff;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.appt-cal-day.is-today {
+  border-color: #206bc4;
+  box-shadow: inset 0 0 0 1px #206bc4;
+}
+
+.appt-cal-day.is-outside {
+  background: #f8f9fa;
+  opacity: 0.85;
+}
+
+.appt-cal-day.is-drag-over {
+  background: #e7f5ff;
+  border-color: #206bc4;
+}
+
+.appt-cal-day-head {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.25rem;
+}
+
+.appt-cal-day-head .muted {
+  font-weight: 400;
+  color: #868e96;
+  font-size: 0.65rem;
+}
+
+.appt-event {
+  display: block;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  padding: 0.25rem 0.35rem;
+  margin-bottom: 0.2rem;
+  border-radius: 4px;
+  border-left: 3px solid #adb5bd;
+  background: #f8f9fa;
+  cursor: grab;
+  user-select: none;
+}
+
+.appt-event:active {
+  cursor: grabbing;
+  opacity: 0.85;
+}
+
+.appt-event.status-requested {
+  border-left-color: #f59f00;
+  background: #fff8e6;
+}
+
+.appt-event.status-booked {
+  border-left-color: #2fb344;
+  background: #eefbf0;
+}
+
+.appt-event .ev-ref {
+  font-weight: 700;
+}
+
+.appt-event .ev-meta {
+  color: #495057;
+}
+
+.appt-event .ev-actions {
+  margin-top: 0.15rem;
+}
+
+.appt-event .ev-actions a {
+  font-size: 0.62rem;
+  margin-right: 0.35rem;
+}
+
+/* Day view — time grid */
+.appt-day-layout {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 0;
+  border: 1px solid #e6e7e9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.appt-day-hours {
+  border-right: 1px solid #e6e7e9;
+  background: #f8f9fa;
+}
+
+.appt-day-hour-label {
+  height: 3rem;
+  font-size: 0.65rem;
+  color: #868e96;
+  padding: 0.2rem 0.35rem;
+  border-bottom: 1px solid #eee;
+  box-sizing: border-box;
+}
+
+.appt-day-slots {
+  position: relative;
+}
+
+.appt-day-slot {
+  height: 3rem;
+  border-bottom: 1px solid #eee;
+  padding: 0.15rem 0.35rem;
+  box-sizing: border-box;
+}
+
+.appt-day-slot.is-drag-over {
+  background: #e7f5ff;
+}
+
+.appt-cal-toast {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 1050;
+  max-width: 22rem;
+}
+
+.appt-cal-saving {
+  opacity: 0.55;
+  pointer-events: none;
+}

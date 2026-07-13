@@ -1,0 +1,61 @@
+{% extends "sqladmin/details.html" %}
+{% block content %}
+<div class="col-12 mb-3">
+  <div class="card border-primary">
+    <div class="card-header">
+      <h3 class="card-title">Session actions</h3>
+    </div>
+    <div class="card-body">
+      <p class="text-muted small mb-3">
+        Notifications go to the patient (WhatsApp/SMS), the assigned provider (<code>contact_phone_e164</code>),
+        and the helpdesk officer (<code>helpdesk_phone_e164</code> in Deployment &amp; integrations).
+      </p>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <a
+          href="{{ model_view._url_for_action(request, 'resend-confirmations') }}?pks={{ get_object_identifier(model) }}"
+          class="btn btn-primary"
+          onclick="return confirm('Resend messages to patient, provider, and helpdesk?')"
+        >Resend all confirmations</a>
+        <a
+          href="{{ model_view._url_for_action(request, 'resend-patient') }}?pks={{ get_object_identifier(model) }}"
+          class="btn btn-outline-primary"
+          onclick="return confirm('Resend payment or call instructions to the patient?')"
+        >Resend patient</a>
+        <a
+          href="{{ model_view._url_for_action(request, 'resend-provider') }}?pks={{ get_object_identifier(model) }}"
+          class="btn btn-outline-primary"
+          onclick="return confirm('Resend booking/payment alert to the provider?')"
+        >Resend provider</a>
+        <a
+          href="{{ model_view._url_for_action(request, 'send-feedback-prompts') }}?pks={{ get_object_identifier(model) }}"
+          class="btn btn-outline-secondary"
+          onclick="return confirm('Send RATE prompt to patient and call summary to provider?')"
+        >Send feedback prompts</a>
+        <a
+          href="{{ model_view._url_for_action(request, 'mark-call-started') }}?pks={{ get_object_identifier(model) }}"
+          class="btn btn-outline-secondary"
+          onclick="return confirm('Mark call as started with provider joined?')"
+        >Mark call started</a>
+        <a
+          href="{{ model_view._url_for_action(request, 'mark-call-ended-joined') }}?pks={{ get_object_identifier(model) }}"
+          class="btn btn-outline-secondary"
+          onclick="return confirm('Mark call ended (provider joined) and send feedback prompts?')"
+        >Mark call ended (joined)</a>
+        <a
+          href="{{ model_view._url_for_action(request, 'mark-no-show') }}?pks={{ get_object_identifier(model) }}"
+          class="btn btn-outline-danger"
+          onclick="return confirm('Mark as no show and notify parties?')"
+        >Mark no show</a>
+        <a
+          href="/admin/telehealth-session/reassign?pk={{ get_object_identifier(model) }}"
+          class="btn btn-outline-secondary"
+        >Reassign provider</a>
+      </div>
+      <p class="small text-muted mb-0">
+        On the list view: select one or more sessions → <strong>Actions</strong> → Resend all / Resend patient / Resend provider.
+      </p>
+    </div>
+  </div>
+</div>
+{{ super() }}
+{% endblock %}

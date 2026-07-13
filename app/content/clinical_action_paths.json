@@ -1,0 +1,122 @@
+{
+  "urgency_tiers": {
+    "emergency": {
+      "label": "Emergency",
+      "actions": [
+        "execute_emergency_path",
+        "send_emergency_patient_instructions",
+        "alert_on_call_clinician",
+        "notify_next_of_kin",
+        "log_ehr_emergency_incident",
+        "open_urgent_teleconsult_slot"
+      ],
+      "patient_suffix": "Call 122 or 112 now. Go to the nearest hospital immediately."
+    },
+    "urgent": {
+      "label": "Urgent",
+      "actions": ["auto_escalate_urgent", "notify_helpdesk", "push_ehr_encounter"],
+      "patient_suffix": "This needs prompt clinical attention. We are flagging this as urgent for our care team."
+    },
+    "routine": {
+      "label": "Routine",
+      "actions": ["self_care_guidance", "offer_telehealth", "push_ehr_observation"],
+      "patient_suffix": "Routine follow-up is appropriate. Send TELEHEALTH to book a clinician if needed."
+    }
+  },
+  "risk_levels": {
+    "high": {
+      "label": "High risk",
+      "actions": ["escalate_risk_review", "push_ehr_risk_flag"],
+      "patient_suffix": "Your health history may make this symptom more serious — please seek care promptly."
+    },
+    "moderate": {
+      "label": "Moderate risk",
+      "actions": ["schedule_callback", "push_ehr_observation"],
+      "patient_suffix": "Given your background, monitor closely and contact us if symptoms worsen."
+    },
+    "low": {
+      "label": "Low risk",
+      "actions": ["self_care_guidance"],
+      "patient_suffix": ""
+    }
+  },
+  "protocols": {
+    "glucose_monitoring": {
+      "label": "Glucose / sugar reading photo",
+      "actions": [
+        "execute_glucose_monitoring_path",
+        "ocr_extract_glucose",
+        "plot_30_day_trend",
+        "check_ehr_medication_regimen",
+        "draft_medication_adjustment",
+        "book_followup_teleconsult",
+        "send_dietary_guidance",
+        "schedule_reading_reminder"
+      ],
+      "patient_suffix": "Glucose reading logged — see trend and interim guidance below."
+    },
+    "maternal_danger_signs": {
+      "label": "Maternal danger signs pathway",
+      "programs": ["maternal_child"],
+      "actions": ["apply_maternal_protocol", "push_ehr_protocol"]
+    },
+    "chronic_followup": {
+      "label": "Chronic disease follow-up",
+      "programs": ["chronic"],
+      "actions": ["apply_chronic_protocol", "push_ehr_protocol"]
+    },
+    "kidney_care": {
+      "label": "Kidney / dialysis pathway",
+      "programs": ["kidney"],
+      "actions": ["apply_kidney_protocol", "push_ehr_protocol"]
+    },
+    "dermatology_photo": {
+      "label": "Skin / wound photo triage",
+      "media_categories": ["wound", "rash", "skin"],
+      "actions": ["vision_review_queue", "offer_telehealth"]
+    },
+    "ophthalmology_photo": {
+      "label": "Eye photo triage",
+      "media_categories": ["eye"],
+      "actions": ["vision_review_queue", "offer_telehealth"]
+    },
+    "general_triage": {
+      "label": "General triage",
+      "actions": ["self_care_guidance"]
+    }
+  },
+  "medication_safety": {
+    "interaction_alert": {
+      "label": "Possible drug interaction",
+      "actions": ["block_auto_refill", "notify_pharmacist_queue", "push_ehr_medication_alert"],
+      "patient_suffix": "A clinician must review this medication request before any refill is approved."
+    },
+    "duplicate_therapy": {
+      "label": "Duplicate therapy concern",
+      "actions": ["notify_pharmacist_queue", "push_ehr_medication_alert"],
+      "patient_suffix": "This refill request needs pharmacist review."
+    },
+    "clear": {
+      "label": "No medication safety flag",
+      "actions": [],
+      "patient_suffix": ""
+    }
+  },
+  "fraud_abuse": {
+    "prescription_seeking": {
+      "label": "Prescription-seeking pattern",
+      "actions": ["flag_abuse_review", "restrict_auto_refill", "push_ehr_abuse_flag"],
+      "patient_suffix": "Your request requires clinician review."
+    },
+    "repeat_narcotic": {
+      "label": "Repeated narcotic requests",
+      "actions": ["flag_abuse_review", "notify_helpdesk", "push_ehr_abuse_flag"],
+      "patient_suffix": "Repeated pain-medicine requests are reviewed by our clinical team."
+    },
+    "clear": {
+      "label": "No abuse signal",
+      "actions": [],
+      "patient_suffix": ""
+    }
+  }
+}

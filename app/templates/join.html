@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kareconnect — Enrol</title>
+    <style>
+      :root {
+        --bg: #f1f5f9;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --accent: #0d9488;
+        --accent-hover: #0f766e;
+        --danger: #b91c1c;
+        --success: #047857;
+        --wa: #128c7e;
+        --radius: 10px;
+        --shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        font-size: 15px;
+      }
+      .header {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 1rem 1.25rem;
+        box-shadow: var(--shadow);
+      }
+      .header-inner {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .logo { font-weight: 700; font-size: 1.125rem; letter-spacing: -0.02em; color: var(--text); }
+      .tag { font-size: 0.8125rem; color: var(--muted); }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 1.5rem 1.25rem 2.5rem; }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem 1.5rem 1.25rem;
+        box-shadow: var(--shadow);
+      }
+      .card + .card { margin-top: 1rem; }
+      h1 { font-size: 1.375rem; font-weight: 600; margin: 0 0 0.5rem; letter-spacing: -0.02em; }
+      .lead { margin: 0 0 1.25rem; color: var(--muted); font-size: 0.9375rem; max-width: 42em; }
+      label { display: block; font-size: 0.8125rem; font-weight: 500; color: var(--muted); margin: 1rem 0 0.35rem; }
+      label:first-of-type { margin-top: 0; }
+      input, select {
+        width: 100%;
+        padding: 0.6rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        font-size: 0.9375rem;
+      }
+      input:focus, select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+      }
+      select[multiple] { min-height: 7.5rem; padding: 0.35rem; }
+      select[multiple] option { padding: 0.35rem 0.5rem; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+      @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+      .btn {
+        margin-top: 1.25rem;
+        width: 100%;
+        padding: 0.65rem 1rem;
+        border-radius: 8px;
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.9375rem;
+        cursor: pointer;
+      }
+      .btn:hover { background: var(--accent-hover); }
+      .btn-wa {
+        display: block;
+        text-align: center;
+        text-decoration: none;
+        margin-top: 0.75rem;
+        padding: 0.65rem 1rem;
+        border-radius: 8px;
+        border: 1px solid var(--wa);
+        background: #fff;
+        color: var(--wa);
+        font-weight: 600;
+        font-size: 0.9375rem;
+      }
+      .btn-wa:hover { background: #f0fdfa; }
+      .btn-wa[disabled], .btn-wa.disabled { opacity: 0.45; pointer-events: none; cursor: not-allowed; }
+      .note { font-size: 0.8125rem; color: var(--muted); margin-top: 1rem; line-height: 1.45; }
+      .err { color: var(--danger); font-size: 0.875rem; margin: 0 0 0.75rem; }
+      .ok { color: var(--success); font-size: 0.875rem; margin: 0 0 0.75rem; }
+      .check-row { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.875rem; color: var(--text); line-height: 1.45; }
+      .check-row input { width: auto; margin-top: 0.2rem; flex-shrink: 0; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.75rem; word-break: break-all; color: var(--muted); }
+      .qr-wrap { text-align: center; margin-top: 0.5rem; }
+      .qr-wrap img { display: inline-block; width: 200px; height: 200px; border-radius: 8px; border: 1px solid var(--border); background: #fff; }
+      .sms-number { font-size: 1.25rem; font-weight: 600; text-align: center; margin: 0.5rem 0 0; letter-spacing: 0.02em; }
+      details.qr-disclose { margin-top: 0.5rem; }
+      details.qr-disclose summary {
+        cursor: pointer;
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 0.9375rem;
+        list-style: none;
+      }
+      details.qr-disclose summary::-webkit-details-marker { display: none; }
+      details.qr-disclose[open] summary { margin-bottom: 0.75rem; }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-inner">
+        <span class="logo">Kareconnect</span>
+        <span class="tag">Patient enrolment</span>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <div class="card">
+        <h1 style="font-size:1.125rem">Open on your phone</h1>
+        <p class="lead" style="margin-bottom:0.5rem">Use your camera to scan a code and open this page or WhatsApp.</p>
+        <details class="qr-disclose">
+          <summary>Click to show QR code</summary>
+          <p class="note" style="margin:0 0 0.5rem">Opens this enrolment page in the browser.</p>
+          <div class="qr-wrap">
+            <img src="/join/qr.png" width="200" height="200" alt="QR code to open Kareconnect enrolment" loading="lazy" />
+          </div>
+        </details>
+      </div>
+
+      <div class="card">
+        <h1>Enrol</h1>
+        <p class="lead">One registration for programme messages and reminders. Add EDD if you use maternal &amp; child.</p>
+
+        {% if error %}<div class="err">{{ error }}</div>{% endif %}
+        {% if success %}<div class="ok">{{ success }}</div>{% endif %}
+
+        <form method="post" action="/join">
+          <label for="full_name">Full name</label>
+          <input id="full_name" name="full_name" placeholder="Legal or preferred name for your record" required />
+
+          <div class="row">
+            <div>
+              <label for="phone_e164">Mobile (E.164)</label>
+              <input id="phone_e164" name="phone_e164" placeholder="+2348012345678" required />
+            </div>
+            <div>
+              <label for="channel">Channel</label>
+              <select id="channel" name="channel" required>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="sms">SMS</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label for="language">Language</label>
+              <select id="language" name="language" required>
+                <option value="en">English</option>
+                <option value="pcm">Pidgin</option>
+                <option value="ha">Hausa</option>
+                <option value="ig">Igbo</option>
+                <option value="yo">Yoruba</option>
+              </select>
+            </div>
+            <div>
+              <label for="edd">EDD (optional)</label>
+              <input id="edd" name="edd" type="date" />
+            </div>
+          </div>
+
+          <label for="programs">Programmes</label>
+          <select id="programs" name="programs" multiple required size="4">
+            <option value="maternal_child" selected>Maternal &amp; child</option>
+            <option value="chronic">Chronic disease</option>
+            <option value="youth">Youth</option>
+            <option value="kidney">Kidney / dialysis</option>
+          </select>
+
+          <div id="recurring-wa-wrap" class="recurring-wa" style="margin-top:1rem">
+            <label class="check-row">
+              <input type="checkbox" name="recurring_whatsapp_opt_in" value="1" />
+              <span>Optional: send me up to one WhatsApp programme education message per day (you can turn this off anytime with REMINDERS NO on WhatsApp).</span>
+            </label>
+          </div>
+
+          <button class="btn" type="submit">Submit enrolment</button>
+          <p class="note">
+            From your phone you can text <span class="mono">{{ sms_join_keyword }}</span> (SMS) or <span class="mono">{{ wa_join_keyword }}</span> (WhatsApp) to enrol without this form.
+            After messages start, send <span class="mono">{{ sms_help_hint }}</span> on SMS{% if sms_help_hint != wa_help_hint %}, or <span class="mono">{{ wa_help_hint }}</span> on WhatsApp{% else %} (same words on WhatsApp){% endif %} for the full command list (the word HELP is often reserved on SMS — use INFO, MENU, or COMMANDS).
+            <span class="mono">STOP</span> pauses; <span class="mono">START</span> resumes.
+            Send <span class="mono">{{ symptom_check_hint }}</span> anytime for how to use the symptom checker (then type your question in normal words).
+          </p>
+        </form>
+      </div>
+
+      {% if sms_join_number %}
+      <div class="card">
+        <h1 style="font-size:1.125rem">SMS</h1>
+        <p class="lead" style="margin-bottom:0.5rem">Text <span class="mono">{{ sms_join_keyword }}</span> to:</p>
+        <p class="sms-number">{{ sms_join_number }}</p>
+      </div>
+      {% endif %}
+
+      {% if wa_link %}
+      <div class="card">
+        <h1 style="font-size:1.125rem">WhatsApp</h1>
+        <p class="lead" style="margin-bottom:0.75rem">Open WhatsApp with your join keyword pre-filled.</p>
+        <a class="btn-wa" href="{{ wa_link }}" target="_blank" rel="noopener">Open WhatsApp</a>
+        <p class="note">Keyword: <span class="mono">{{ wa_join_keyword }}</span></p>
+        <details class="qr-disclose">
+          <summary>Click to show WhatsApp QR code</summary>
+          <p class="note" style="margin:0 0 0.5rem">Scan to open WhatsApp with the join keyword ready to send.</p>
+          <div class="qr-wrap">
+            <img src="/join/wa-qr.png" width="200" height="200" alt="QR code to open WhatsApp with join keyword" loading="lazy" />
+          </div>
+        </details>
+      </div>
+      {% endif %}
+
+      <p class="note" style="text-align:center;margin-top:1.5rem;margin-bottom:0">
+        <a href="/privacy" style="color:var(--accent);font-weight:500;text-decoration:none">Privacy policy</a>
+      </p>
+    </div>
+    <script>
+      (function () {
+        var ch = document.getElementById("channel");
+        var wrap = document.getElementById("recurring-wa-wrap");
+        if (!ch || !wrap) return;
+        function sync() {
+          wrap.style.display = ch.value === "whatsapp" ? "block" : "none";
+        }
+        ch.addEventListener("change", sync);
+        sync();
+      })();
+    </script>
+  </body>
+</html>

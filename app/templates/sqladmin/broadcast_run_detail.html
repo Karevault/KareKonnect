@@ -1,0 +1,176 @@
+{% extends "sqladmin/layout.html" %}
+{% block content_header %}
+<div class="row align-items-center">
+  <div class="col">
+    <h2 class="page-title">Broadcast recipients</h2>
+    <div class="page-pretitle">
+      {{ run.program_label }} · {{ run.enrollment_status }} · {{ run.channel_label }}
+      · {{ run.created_at | format_dt }}
+    </div>
+  </div>
+  <div class="col-auto">
+    <a href="/admin/broadcast" class="btn btn-outline-secondary btn-sm">← New broadcast</a>
+    <a href="/admin/broadcast-run/list" class="btn btn-outline-secondary btn-sm">All history</a>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="col-12 col-lg-11">
+  <div class="card mb-3">
+    <div class="card-header"><h3 class="card-title">Summary</h3></div>
+    <div class="card-body">
+      <div class="row g-3 mb-3">
+        <div class="col-sm-3"><div class="text-muted small">Sent</div><div class="fs-4">{{ stats.sent }}</div></div>
+        <div class="col-sm-3"><div class="text-muted small">Queued</div><div class="fs-4">{{ stats.queued }}</div></div>
+        <div class="col-sm-3"><div class="text-muted small">Failed</div><div class="fs-4">{{ stats.failed }}</div></div>
+        <div class="col-sm-3"><div class="text-muted small">Total recipients</div><div class="fs-4">{{ stats.total }}</div></div>
+      </div>
+      <p class="mb-1"><span class="text-muted">Message</span></p>
+      <div class="border rounded p-3 bg-light small" style="white-space:pre-wrap">{{ run.message_body }}</div>
+      <p class="text-muted small mt-2 mb-0">
+        By {{ run.created_by or "—" }}
+        {% if run.translate_per_user %}· translated per language batch (English first){% endif %}
+        · ID <code>{{ run.id }}</code>
+      </p>
+    </div>
+  </div>
+
+  {% if language_groups %}
+  <div class="card mb-3">
+    <div class="card-header"><h3 class="card-title">Delivery by language</h3></div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Language</th>
+              <th>Total</th>
+              <th>Sent</th>
+              <th>Failed</th>
+              <th>Queued</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for group in language_groups %}
+            <tr>
+              <td><strong>{{ group.label }}</strong> <span class="text-muted">({{ group.language }})</span></td>
+              <td>{{ group.total }}</td>
+              <td>{{ group.sent }}</td>
+              <td>{% if group.failed %}<span class="text-danger">{{ group.failed }}</span>{% else %}0{% endif %}</td>
+              <td>{{ group.queued }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted small border-top p-3 mb-0">Batches are sent in order: English, then Pidgin, Hausa, Igbo, Yoruba.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if language_groups %}
+  {% for group in language_groups %}
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">{{ group.label }} ({{ group.total }})</h3>
+      <span class="text-muted small">
+        {{ group.sent }} sent{% if group.failed %}, {{ group.failed }} failed{% endif %}{% if group.queued %}, {{ group.queued }} queued{% endif %}
+      </span>
+    </div>
+    <div class="card-body p-0">
+      {% if group.members %}
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              <th>Phone</th>
+              <th>Name</th>
+              <th>Channel</th>
+              <th>Status</th>
+              <th>Sent at</th>
+              <th>Error</th>
+              <th>Message preview</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in group.members %}
+            <tr>
+              <td><code>{{ row.phone }}</code></td>
+              <td>{{ row.name }}</td>
+              <td>{{ row.channel }}</td>
+              <td>
+                {% if row.status == 'sent' %}
+                <span class="badge bg-success">sent</span>
+                {% elif row.status == 'failed' %}
+                <span class="badge bg-danger">failed</span>
+                {% else %}
+                <span class="badge bg-secondary">{{ row.status }}</span>
+                {% endif %}
+              </td>
+              <td class="text-nowrap small">{{ row.sent_at | format_dt if row.sent_at else '—' }}</td>
+              <td class="small text-danger">{{ row.error or '—' }}</td>
+              <td class="small text-muted">{{ row.body_preview }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted p-3 mb-0">No members in this language group.</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% elif recipients %}
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Per-member delivery</h3></div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              <th>Phone</th>
+              <th>Name</th>
+              <th>Channel</th>
+              <th>Language</th>
+              <th>Status</th>
+              <th>Sent at</th>
+              <th>Error</th>
+              <th>Message preview</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in recipients %}
+            <tr>
+              <td><code>{{ row.phone }}</code></td>
+              <td>{{ row.name }}</td>
+              <td>{{ row.channel }}</td>
+              <td>{{ row.language }}</td>
+              <td>
+                {% if row.status == 'sent' %}
+                <span class="badge bg-success">sent</span>
+                {% elif row.status == 'failed' %}
+                <span class="badge bg-danger">failed</span>
+                {% else %}
+                <span class="badge bg-secondary">{{ row.status }}</span>
+                {% endif %}
+              </td>
+              <td class="text-nowrap small">{{ row.sent_at | format_dt if row.sent_at else '—' }}</td>
+              <td class="small text-danger">{{ row.error or '—' }}</td>
+              <td class="small text-muted">{{ row.body_preview }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted mb-0">No outbox rows linked to this broadcast yet.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

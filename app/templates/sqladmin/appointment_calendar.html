@@ -1,0 +1,104 @@
+{% extends "sqladmin/layout.html" %}
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="/admin-hc/appointment-calendar.css">
+{% endblock %}
+{% block content_header %}
+<div class="row align-items-center">
+  <div class="col">
+    <h2 class="page-title">Appointment calendar</h2>
+    <div class="page-pretitle">
+      {{ page.nav.label }} · {{ page.event_count }} on calendar · {{ page.pending_count }} pending
+    </div>
+  </div>
+  <div class="col-auto">
+    <a href="/admin/appointment/list" class="btn btn-outline-secondary btn-sm">All records</a>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="col-12" id="appt-cal-root" data-today="{{ today }}">
+  {% if flash %}
+  <div class="alert alert-{{ flash.level }}">{{ flash.message }}</div>
+  {% endif %}
+
+  <script type="application/json" id="appt-cal-data">{{ page_json | safe }}</script>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="appt-cal-toolbar">
+        <div class="btn-group" role="group">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-appt-view="day">Day</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-appt-view="week">Week</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-appt-view="month">Month</button>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="appt-cal-prev">&larr;</button>
+          <span class="appt-cal-nav-label" id="appt-cal-nav-label">{{ page.nav.label }}</span>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="appt-cal-next">&rarr;</button>
+          <button type="button" class="btn btn-link btn-sm" id="appt-cal-today">Today</button>
+        </div>
+        <div class="form-check mb-0">
+          <input class="form-check-input" type="checkbox" id="appt-notify-on-drag" checked>
+          <label class="form-check-label small" for="appt-notify-on-drag">Notify patient when rescheduled</label>
+        </div>
+      </div>
+
+      <p class="appt-cal-hint mb-2">
+        Drag appointments between days or time slots. Pending requests (yellow) can be dragged onto the calendar or use
+        <strong>Approve</strong> to assign a clinician.
+      </p>
+
+      {% if page.pending_count > 0 %}
+      <div class="mb-2 small fw-semibold">Pending queue — drag onto calendar</div>
+      <div id="appt-pending-pool" class="appt-pending-pool"></div>
+      {% endif %}
+
+      <div id="appt-cal-mount"></div>
+    </div>
+  </div>
+
+  {% if page.pending_count > 0 %}
+  <div class="card mb-3">
+    <div class="card-header">
+      <h3 class="card-title">Pending approval table</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Ref</th>
+            <th>Patient</th>
+            <th>Type</th>
+            <th>Reason</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in page.pending %}
+          <tr>
+            <td><code>{{ a.ref }}</code></td>
+            <td><code>{{ a.phone }}</code></td>
+            <td>{{ a.visit_label }}</td>
+            <td>{{ a.reason }}</td>
+            <td>{{ (a.date or a.preferred_date) | format_date if (a.date or a.preferred_date) else "—" }}</td>
+            <td class="text-end">
+              <a href="{{ a.assign_url }}" class="btn btn-primary btn-sm">Approve &amp; assign</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div id="appt-cal-toast" class="appt-cal-toast alert alert-success" style="display:none;" role="alert"></div>
+
+<script src="/admin-hc/appointment-calendar.js"></script>
+{% endblock %}
+{% block tail %}
+{{ super() }}
+{% endblock %}

@@ -1,0 +1,9 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+# Runs once per deploy before new instances serve traffic: applies schema patches in app/db.py (init_db).
+releaseCommand = "python scripts/download_ml_assets.py && python -c \"from app.db import init_db; init_db()\""
+# Trust Railway edge X-Forwarded-Proto so absolute URLs use https (optional; admin base template uses path-only statics).
+# HF_HOME: Pidgin Marian weights baked at build (ml_cache/hf_hub); ha/ig/yo use Google Translate.
+startCommand = "sh -c 'export FORWARDED_ALLOW_IPS=\"${FORWARDED_ALLOW_IPS:-*}\" && export HF_HOME=\"${HF_HOME:-/app/ml_cache/hf_hub}\" && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'"

@@ -1,0 +1,301 @@
+{% extends "sqladmin/layout.html" %}
+{% block content_header %}
+<div class="row align-items-center">
+  <div class="col">
+    <h2 class="page-title">{{ page_title }}</h2>
+    <div class="page-pretitle">{{ page_subtitle }}</div>
+  </div>
+  <div class="col-auto">
+    <a href="/admin/translation-monitoring" class="btn btn-outline-secondary">← Back to overview</a>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="col-12 hc-translation-monitoring hc-translation-detail">
+
+  {% if section == 'learning' %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-3 text-center mb-4">
+        <div class="col-md-4">
+          <div class="display-5 fw-semibold">{{ counts.learning_total }}</div>
+          <div class="text-muted">Total samples</div>
+        </div>
+        <div class="col-md-4">
+          <div class="display-5 fw-semibold">{{ counts.learning_24h }}</div>
+          <div class="text-muted">Last 24 hours</div>
+        </div>
+        <div class="col-md-4">
+          <div class="display-5 fw-semibold">{{ counts.learning_7d }}</div>
+          <div class="text-muted">Last 7 days</div>
+        </div>
+      </div>
+      {% if learning_by_provider %}
+      <h4 class="mb-3">By provider</h4>
+      <ul class="list-unstyled hc-tm-stat-list mb-4">
+        {% for k, v in learning_by_provider.items() %}
+        <li class="d-flex justify-content-between py-2 border-bottom"><span>{{ k }}</span><strong>{{ v }}</strong></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <a href="{{ url_for('admin:list', identity='translation-learning-sample') }}" class="btn btn-primary">Browse all learning samples</a>
+    </div>
+  </div>
+
+  {% elif section == 'cache' %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-3 text-center mb-4">
+        <div class="col-md-4">
+          <div class="display-5 fw-semibold">{{ counts.cache_total }}</div>
+          <div class="text-muted">Total cache rows</div>
+        </div>
+        <div class="col-md-4">
+          <div class="display-5 fw-semibold">{{ counts.stale_ml_cache }}</div>
+          <div class="text-muted">Stale ML (version mismatch)</div>
+        </div>
+        <div class="col-md-4">
+          <div class="display-5 fw-semibold">{{ counts.pcm_poisoned_cache }}</div>
+          <div class="text-muted">Pidgin rows = source (failed)</div>
+        </div>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-6">
+          <h4 class="mb-3">By provider</h4>
+          {% if cache_by_provider %}
+          <ul class="list-unstyled hc-tm-stat-list">
+            {% for k, v in cache_by_provider.items() %}
+            <li class="d-flex justify-content-between py-2 border-bottom"><span>{{ k }}</span><strong>{{ v }}</strong></li>
+            {% endfor %}
+          </ul>
+          {% else %}<p class="text-muted">No cache rows yet.</p>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <h4 class="mb-3">By category</h4>
+          {% if cache_by_category %}
+          <ul class="list-unstyled hc-tm-stat-list">
+            {% for k, v in cache_by_category.items() %}
+            <li class="d-flex justify-content-between py-2 border-bottom"><span>{{ k }}</span><strong>{{ v }}</strong></li>
+            {% endfor %}
+          </ul>
+          {% else %}<p class="text-muted">No cache rows yet.</p>{% endif %}
+        </div>
+      </div>
+      <p class="mt-4 mb-0"><a href="{{ url_for('admin:list', identity='translation-cache') }}" class="btn btn-primary">Browse all cache rows</a></p>
+    </div>
+  </div>
+
+  {% elif section == 'patients' %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <p class="text-muted">Enrolled patients grouped by <code>LANG</code> preference.</p>
+      {% if users_by_lang %}
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead><tr><th>Language</th><th class="text-end">Patients</th></tr></thead>
+          <tbody>
+            {% for lang, n in users_by_lang.items() %}
+            <tr><td><code>{{ lang or '—' }}</code></td><td class="text-end">{{ n }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">No patients with language set yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% elif section == 'recording' %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <p class="display-4 fw-semibold mb-3">{% if config.record_learning %}ON{% else %}OFF{% endif %}</p>
+      <p>When <strong>ON</strong>, inbound/outbound translations are stored in <strong>Translation learning samples</strong> for training data export.</p>
+      <table class="table table-sm mt-4">
+        <tr><td class="text-muted">Environment variable</td><td><code>HC_TRANSLATION_RECORD_LEARNING</code></td></tr>
+        <tr><td class="text-muted">Current value</td><td><code>{{ '1' if config.record_learning else '0' }}</code></td></tr>
+      </table>
+    </div>
+  </div>
+
+  {% elif section == 'live-test' %}
+  <div class="card mb-3">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <h3 class="card-title mb-0">Live Pidgin smoke test</h3>
+      <form method="post" action="/admin/translation-monitoring/run-live-test" class="mb-0">
+        <button type="submit" class="btn btn-primary btn-sm">Run test now</button>
+      </form>
+    </div>
+    <div class="card-body">
+      {% if live_test %}
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <h4>English input</h4>
+          <p>{{ live_test.english_sample }}</p>
+          <h4 class="mt-4">Marian (direct)</h4>
+          <p>
+            <span class="badge {% if live_test.marian_ok %}bg-success{% else %}bg-danger{% endif %}">
+              {% if live_test.marian_ok %}OK{% else %}Failed{% endif %}
+            </span>
+            {% if live_test.marian_model %}<code class="ms-2">{{ live_test.marian_model }}</code>{% endif %}
+          </p>
+          {% if live_test.marian_pidgin %}<p><strong>Pidgin:</strong> {{ live_test.marian_pidgin }}</p>{% endif %}
+        </div>
+        <div class="col-lg-6">
+          <h4>Full outbound pipeline (LANG pcm)</h4>
+          <p>
+            <span class="badge {% if live_test.pipeline_ok %}bg-success{% else %}bg-danger{% endif %}">
+              {% if live_test.pipeline_ok %}OK{% else %}Failed / English fallback{% endif %}
+            </span>
+          </p>
+          {% if live_test.pipeline_text %}<p><strong>Reply:</strong> {{ live_test.pipeline_text }}</p>{% endif %}
+        </div>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">Click <strong>Run test now</strong> to translate a sample sentence to Pidgin (first run may take a minute if models are cold).</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% elif section == 'runtime' %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <table class="table table-striped">
+        <tbody>
+          <tr><td class="text-muted" style="width:40%">ML model version (cache key)</td><td><code>{{ config.ml_model_version }}</code></td></tr>
+          <tr><td class="text-muted">ML min confidence</td><td>{{ config.ml_min_confidence }}</td></tr>
+          <tr><td class="text-muted">ML base URL set</td><td>{{ config.ml_base_url_set }}</td></tr>
+          <tr><td class="text-muted">Google Translate API key</td><td>{{ config.google_translate_set }}</td></tr>
+          <tr><td class="text-muted">Pidgin translate timeout</td><td>{{ config.pcm_translate_timeout_sec }}s</td></tr>
+          <tr><td class="text-muted">Recording learning</td><td>{{ config.record_learning }}</td></tr>
+        </tbody>
+      </table>
+      <p class="text-muted border-top pt-3 mt-3 mb-0">
+        Bump <code>HC_TRANSLATION_ML_MODEL_VERSION</code> after retraining to invalidate old ML cache rows.
+        Hausa / Igbo / Yoruba use Google; Pidgin uses Marian only.
+      </p>
+    </div>
+  </div>
+
+  {% elif section == 'models' %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <dl class="row">
+        <dt class="col-sm-3 text-muted">FastText LID</dt>
+        <dd class="col-sm-9">
+          {% if assets.fasttext_available %}<span class="badge bg-success">present</span>{% else %}<span class="badge bg-danger">missing</span>{% endif %}
+          <div class="mt-2"><code class="text-break">{{ assets.fasttext_lid_path }}</code></div>
+        </dd>
+        <dt class="col-sm-3 text-muted">Hugging Face cache</dt>
+        <dd class="col-sm-9">
+          {% if assets.hf_on_disk %}<span class="badge bg-success">on disk</span>{% if assets.hf_size_mb %} ~{{ assets.hf_size_mb }} MB{% endif %}
+          {% else %}<span class="badge bg-warning">not found</span>{% endif %}
+          <div class="mt-2"><code class="text-break">{{ assets.hf_home }}</code></div>
+        </dd>
+        <dt class="col-sm-3 text-muted">Marian (Pidgin) configured</dt>
+        <dd class="col-sm-9">
+          <ul>{% for m in assets.marian_models %}<li><code class="text-break">{{ m }}</code></li>{% endfor %}</ul>
+        </dd>
+        <dt class="col-sm-3 text-muted">Loaded in RAM</dt>
+        <dd class="col-sm-9">
+          {% if assets.marian_loaded %}
+          <ul>{% for m in assets.marian_loaded %}<li><code class="text-break">{{ m }}</code></li>{% endfor %}</ul>
+          {% else %}
+          <span class="text-muted">None yet — warmup on startup or first Pidgin message.</span>
+          {% endif %}
+        </dd>
+      </dl>
+    </div>
+  </div>
+
+  {% elif section == 'language-pairs' %}
+  <div class="card mb-3">
+    <div class="card-body">
+      {% if language_pairs %}
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead><tr><th>Source</th><th>Target</th><th class="text-end">Samples</th></tr></thead>
+          <tbody>
+            {% for p in language_pairs %}
+            <tr><td><code>{{ p.source }}</code></td><td><code>{{ p.target }}</code></td><td class="text-end">{{ p.count }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">No samples recorded yet. Enable <code>HC_TRANSLATION_RECORD_LEARNING</code>.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% elif section == 'recent-learning' %}
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">Recent training samples</h3>
+      <a href="{{ url_for('admin:list', identity='translation-learning-sample') }}" class="btn btn-sm btn-outline-primary">Browse all</a>
+    </div>
+    <div class="card-body">
+      {% if recent_learning %}
+      <div class="table-responsive">
+        <table class="table table-striped table-vcenter">
+          <thead>
+            <tr>
+              <th>When</th><th>Pair</th><th>Provider</th><th>Source</th><th>Output</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in recent_learning %}
+            <tr>
+              <td class="text-nowrap">{{ row.created_at | format_dt }}</td>
+              <td class="text-nowrap"><code>{{ row.source_lang }}→{{ row.target_lang }}</code></td>
+              <td>{{ row.provider }}{% if row.ml_model_version %} <span class="text-muted small">({{ row.ml_model_version }})</span>{% endif %}</td>
+              <td>{{ row.source_text }}</td>
+              <td>{{ row.output_text }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">No samples yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% elif section == 'recent-cache' %}
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">Recent cache updates</h3>
+      <a href="{{ url_for('admin:list', identity='translation-cache') }}" class="btn btn-sm btn-outline-primary">Browse all</a>
+    </div>
+    <div class="card-body">
+      {% if recent_cache %}
+      <div class="table-responsive">
+        <table class="table table-striped table-vcenter">
+          <thead>
+            <tr><th>Updated</th><th>Category</th><th>Pair</th><th>Provider</th><th>Source</th><th>Result</th></tr>
+          </thead>
+          <tbody>
+            {% for row in recent_cache %}
+            <tr>
+              <td class="text-nowrap">{{ row.updated_at | format_dt }}</td>
+              <td>{{ row.category }}</td>
+              <td class="text-nowrap"><code>{{ row.source_lang }}→{{ row.target_lang }}</code></td>
+              <td>{{ row.provider }}</td>
+              <td>{{ row.source_text }}</td>
+              <td>{{ row.result_text }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">No cache rows yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "sqladmin/layout.html" %}
+{% block content_header %}
+<div class="row align-items-center">
+  <div class="col">
+    <h2 class="page-title">Webhooks reference</h2>
+    <div class="page-pretitle">Copy into Meta / Twilio / Africa’s Talking — base <code>{{ base_url }}</code></div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="col-12">
+  <div class="card mb-3">
+    <div class="card-header"><h3 class="card-title">Callback URLs</h3></div>
+    <div class="card-body">
+      <div class="d-flex flex-column gap-3">
+        <div class="border rounded p-3">
+          <div class="fw-semibold mb-1">Meta — WhatsApp verify + inbound</div>
+          <input class="form-control form-control-sm font-monospace" readonly value="{{ base_url }}/webhooks/meta/whatsapp"/>
+        </div>
+        <div class="border rounded p-3">
+          <div class="fw-semibold mb-1">Twilio — inbound SMS / WhatsApp (TwiML)</div>
+          <input class="form-control form-control-sm font-monospace" readonly value="{{ base_url }}/webhooks/twilio/inbound"/>
+        </div>
+        <div class="border rounded p-3">
+          <div class="fw-semibold mb-1">Twilio — delivery status</div>
+          <input class="form-control form-control-sm font-monospace" readonly value="{{ base_url }}/webhooks/twilio/status"/>
+        </div>
+        <div class="border rounded p-3">
+          <div class="fw-semibold mb-1">Africa’s Talking — inbound SMS</div>
+          <input class="form-control form-control-sm font-monospace" readonly value="{{ base_url }}/webhooks/africastalking/sms"/>
+        </div>
+        <div class="border rounded p-3">
+          <div class="fw-semibold mb-1">Africa’s Talking — USSD</div>
+          <input class="form-control form-control-sm font-monospace" readonly value="{{ base_url }}/webhooks/africastalking/ussd"/>
+        </div>
+        <div class="border rounded p-3">
+          <div class="fw-semibold mb-1">Paystack — telehealth payment events</div>
+          <input class="form-control form-control-sm font-monospace" readonly value="{{ base_url }}/webhooks/paystack"/>
+        </div>
+      </div>
+      <p class="small text-muted mt-3 mb-0">
+        Twilio status: Messaging Service → Integration → Status callback URL. Outbound sends also set StatusCallback when base URL is HTTPS.
+        Paystack: Settings → API Keys &amp; Webhooks → add <code>charge.success</code> to the URL above. Meta Calling: subscribe webhook field <code>calls</code> on the same Meta WhatsApp webhook.
+      </p>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header"><h3 class="card-title">Self-tests</h3></div>
+    <div class="card-body">
+      <p class="text-muted small">Calls your public <code>{{ base_url }}</code> from the server.</p>
+      <div class="d-flex flex-column flex-md-row gap-2">
+        <form method="post" action="/admin/webhooks-reference/test-meta-verify" class="flex-grow-1">
+          <button type="submit" class="btn btn-primary w-100" {% if not meta_verify_token_set %}disabled title="Set META_WA_VERIFY_TOKEN first"{% endif %}>Test Meta GET verify</button>
+        </form>
+        <form method="post" action="/admin/webhooks-reference/test-twilio-status" class="flex-grow-1">
+          <button type="submit" class="btn btn-primary w-100">Test Twilio status POST</button>
+        </form>
+        <form method="post" action="/admin/webhooks-reference/test-twilio-inbound" class="flex-grow-1">
+          <button type="submit" class="btn btn-primary w-100">Test Twilio inbound (INFO)</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Recent Twilio delivery events</h3></div>
+    <div class="card-body">
+      {% if twilio_delivery_events %}
+      <div class="d-flex flex-column gap-2">
+        {% for ev in twilio_delivery_events %}
+        <div class="border rounded p-2 small">
+          <div><span class="text-muted">Time</span> {{ ev.created_at | format_dt }}</div>
+          <div><span class="text-muted">SID</span> <code>{{ ev.message_sid }}</code></div>
+          <div><span class="text-muted">Status</span> {{ ev.message_status }}{% if ev.error_code %} · error {{ ev.error_code }}{% endif %}</div>
+          {% if ev.to_value %}<div><span class="text-muted">To</span> {{ ev.to_value }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">No delivery callbacks yet.</p>
+      {% endif %}
+      <p class="small text-muted border-top pt-3 mt-3 mb-0"><a href="{{ url_for('admin:list', identity='twilio-delivery-event') }}">All Twilio delivery events</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

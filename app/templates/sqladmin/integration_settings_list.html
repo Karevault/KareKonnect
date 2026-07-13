@@ -1,0 +1,11 @@
+{% extends "sqladmin/list.html" %}
+{% block content %}
+<div class="container-fluid mb-3">
+  <div class="row">
+    <div class="col-12">
+      {% include "sqladmin/_integration_self_test_panel.html" %}
+    </div>
+  </div>
+</div>
+{{ super() }}
+{% endblock %}

@@ -1,0 +1,188 @@
+{% extends "sqladmin/layout.html" %}
+{% block content_header %}
+<div class="row align-items-center">
+  <div class="col">
+    <h2 class="page-title">Programme broadcast</h2>
+    <div class="page-pretitle">Send one message to all members in a programme group (SMS or WhatsApp)</div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="col-12 col-lg-10">
+  {% if flash %}
+  <div class="alert alert-{{ flash.level }} mb-3" role="alert">
+    {{ flash.message }}
+    {% if last_run_id %}
+    <a href="/admin/broadcast/run?run_id={{ last_run_id }}" class="alert-link">View delivery status →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card mb-3">
+    <div class="card-header"><h3 class="card-title">Compose</h3></div>
+    <div class="card-body">
+      <form method="post" action="/admin/broadcast" id="broadcast-form">
+        <input type="hidden" name="action" id="form-action" value="preview"/>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label" for="program">Programme group</label>
+            <select class="form-select" name="program" id="program" required>
+              {% for value, label in program_choices %}
+              <option value="{{ value }}" {% if form.program == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="enrollment_status">Enrollment status</label>
+            <select class="form-select" name="enrollment_status" id="enrollment_status">
+              {% for value, label in status_choices %}
+              <option value="{{ value }}" {% if form.enrollment_status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Default <strong>Active</strong> respects members who sent STOP (paused).</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="channel">Delivery channel</label>
+            <select class="form-select" name="channel" id="channel">
+              {% for value, label in channel_choices %}
+              <option value="{{ value }}" {% if form.channel == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="language">Language</label>
+            <select class="form-select" name="language" id="language">
+              {% for value, label in language_choices %}
+              <option value="{{ value }}" {% if form.language == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="message_body">Message (compose in English)</label>
+          <textarea class="form-control" name="message_body" id="message_body" rows="6" required
+            placeholder="Example: Clinic will be closed tomorrow for a public holiday. Programme messages resume Friday.">{{ form.message_body }}</textarea>
+          <div class="form-text">When translation is on, delivery runs by language batch (English first). WhatsApp: free-form text only reaches users who messaged in the last 24h unless a broadcast template is set in Integration settings.</div>
+        </div>
+
+        <div class="form-check mb-4">
+          <input class="form-check-input" type="checkbox" name="translate_per_user" id="translate_per_user" value="1"
+            {% if form.translate_per_user %}checked{% endif %}/>
+          <label class="form-check-label" for="translate_per_user">Translate to each member’s LANG (EN, PCM, HA, IG, YO)</label>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+          <button type="submit" class="btn btn-outline-primary" onclick="document.getElementById('form-action').value='preview'">
+            Preview audience
+          </button>
+          <button type="submit" class="btn btn-primary" id="send-btn"
+            onclick="document.getElementById('form-action').value='send'; if(!confirm('Send this broadcast now to all matching members?')) return false; this.disabled=true; this.textContent='Sending…'; return true;">
+            Send broadcast
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if preview %}
+  <div class="card mb-3">
+    <div class="card-header"><h3 class="card-title">Audience preview</h3></div>
+    <div class="card-body">
+      <p class="mb-2"><strong>{{ preview.count }}</strong> member(s) match these filters.</p>
+      {% if preview.wa_session and (preview.wa_session.open_session or preview.wa_session.needs_template) %}
+      <p class="text-muted small mb-2">
+        WhatsApp 24h session:
+        <strong>{{ preview.wa_session.open_session }}</strong> can receive free-form text now,
+        <strong>{{ preview.wa_session.needs_template }}</strong> need an approved Meta template (or must message first).
+      </p>
+      {% endif %}
+      {% if preview.language_counts %}
+      <p class="text-muted small mb-2">
+        {% if preview.language_counts|length == 1 %}
+        Single-language broadcast:
+        {% else %}
+        Delivery order by language (English first):
+        {% endif %}
+      </p>
+      <div class="table-responsive mb-3">
+        <table class="table table-sm table-bordered" style="max-width:28rem">
+          <thead><tr><th>Language</th><th>Members</th></tr></thead>
+          <tbody>
+            {% for row in preview.language_counts %}
+            <tr>
+              <td>{{ row.label }} <span class="text-muted">({{ row.language }})</span></td>
+              <td>{{ row.count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% if preview.sample %}
+      <p class="text-muted small">Sample (up to {{ preview.sample|length }}):</p>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead><tr><th>Phone</th><th>Name</th><th>Channel</th><th>Language</th></tr></thead>
+          <tbody>
+            {% for row in preview.sample %}
+            <tr>
+              <td><code>{{ row.phone }}</code></td>
+              <td>{{ row.name }}</td>
+              <td>{{ row.channel }}</td>
+              <td>{{ row.language }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% if preview.count == 0 %}
+      <p class="text-muted mb-0">No members match. Try another programme or status, or check enrollments.</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if recent_runs %}
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Recent broadcasts</h3></div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Group</th>
+              <th>Status</th>
+              <th>Channel</th>
+              <th>Queued</th>
+              <th>By</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for run in recent_runs %}
+            <tr>
+              <td class="text-nowrap small">{{ run.created_at | format_dt }}</td>
+              <td><a href="/admin/broadcast/run?run_id={{ run.id }}">{{ run.program_label }}</a></td>
+              <td>{{ run.enrollment_status }}</td>
+              <td>{{ run.channel_label }}</td>
+              <td>{{ run.queued_count }}/{{ run.recipient_count }}</td>
+              <td>{{ run.created_by or "—" }}</td>
+              <td class="small text-muted">{{ run.message_preview }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="small text-muted border-top p-3 mb-0">
+        <a href="{{ url_for('admin:list', identity='broadcast-run') }}">All broadcast history</a>
+        · Delivery status in <a href="{{ url_for('admin:list', identity='message-outbox') }}">Message outbox</a>
+      </p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

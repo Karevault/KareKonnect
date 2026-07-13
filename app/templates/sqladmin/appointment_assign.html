@@ -1,0 +1,71 @@
+{% extends "sqladmin/layout.html" %}
+{% block content_header %}
+<div class="row align-items-center">
+  <div class="col">
+    <h2 class="page-title">Approve &amp; assign appointment</h2>
+    <div class="page-pretitle">Ref {{ ctx.ref }} · {{ ctx.visit_label }} · status {{ ctx.status }}</div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="col-12 col-lg-8">
+  <div class="card">
+    <div class="card-body">
+      {% if error %}
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+      {% endif %}
+      {% if success %}
+      <div class="alert alert-success" role="alert">{{ success }}</div>
+      {% endif %}
+
+      <dl class="row mb-4">
+        <dt class="col-sm-3">Patient</dt>
+        <dd class="col-sm-9"><code>{{ ctx.phone }}</code></dd>
+        <dt class="col-sm-3">Reason</dt>
+        <dd class="col-sm-9">{{ ctx.reason }}</dd>
+        <dt class="col-sm-3">Preferred date</dt>
+        <dd class="col-sm-9">{{ ctx.preferred_date or "—" }}</dd>
+        <dt class="col-sm-3">Current clinician</dt>
+        <dd class="col-sm-9">{{ ctx.current_provider_name }}</dd>
+      </dl>
+
+      <form method="post" action="/admin/appointment/assign?pk={{ ctx.appointment_id }}">
+        <div class="mb-3">
+          <label class="form-label" for="provider_id">Assign clinician</label>
+          <select class="form-select" id="provider_id" name="provider_id" required>
+            <option value="" disabled {% if not ctx.current_provider_id %}selected{% endif %}>Choose active provider…</option>
+            {% for p in ctx.providers %}
+            <option value="{{ p.id }}" {% if p.id == ctx.current_provider_id %}selected{% endif %}>{{ p.label }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Video appointments check live availability (free / booked / in session).</div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="scheduled_date">Scheduled date</label>
+            <input type="date" class="form-control" id="scheduled_date" name="scheduled_date"
+                   value="{{ ctx.scheduled_date or '' }}" required />
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="scheduled_time">Time (UTC)</label>
+            <input type="time" class="form-control" id="scheduled_time" name="scheduled_time"
+                   value="{{ ctx.scheduled_time or '09:00' }}" />
+          </div>
+        </div>
+        <div class="mb-3 form-check">
+          <input type="checkbox" class="form-check-input" id="notify_patient" name="notify_patient" value="1" checked />
+          <label class="form-check-label" for="notify_patient">Notify patient on WhatsApp/SMS</label>
+        </div>
+        <p class="small text-muted">
+          Sets status to <strong>booked</strong>, syncs to KareVault EHR, and alerts helpdesk.
+        </p>
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="submit" class="btn btn-primary">Approve &amp; assign</button>
+          <a href="/admin/appointment" class="btn btn-link">Back to calendar</a>
+          <a href="/admin/appointment/details/{{ ctx.appointment_id }}" class="btn btn-link">Record details</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

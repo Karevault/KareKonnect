@@ -1,0 +1,51 @@
+<div class="card mb-3 border-primary">
+  <div class="card-header">
+    <h3 class="card-title">Test integrations</h3>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small mb-3">
+      Runs read-only checks against Meta Graph, Twilio, Africa’s Talking, and Paystack using saved settings
+      (same as env when fields are empty). Fix failures, then use <strong>Save</strong> on the edit form if you changed values.
+    </p>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <form method="post" action="/admin/integration-self-test/run-meta">
+          <button type="submit" class="btn btn-primary w-100">Test Meta WhatsApp</button>
+        </form>
+      </div>
+      <div class="col-md-4">
+        <form method="post" action="/admin/integration-self-test/run-twilio">
+          <button type="submit" class="btn btn-primary w-100">Test Twilio</button>
+        </form>
+      </div>
+      <div class="col-md-4">
+        <form method="post" action="/admin/integration-self-test/run-at">
+          <button type="submit" class="btn btn-primary w-100">Test Africa’s Talking</button>
+        </form>
+      </div>
+      <div class="col-md-4">
+        <form method="post" action="/admin/integration-self-test/run-broadcast-template">
+          <button type="submit" class="btn btn-outline-primary w-100">Test broadcast template</button>
+        </form>
+      </div>
+      <div class="col-md-4">
+        <form method="post" action="/admin/integration-self-test/run-paystack">
+          <button type="submit" class="btn btn-outline-primary w-100">Test Paystack</button>
+        </form>
+      </div>
+    </div>
+    <hr class="my-3"/>
+    <p class="small text-muted mb-1"><strong>Meta test numbers vs production</strong></p>
+    <p class="small text-muted mb-2">
+      Developer / “send to test number” flows are for building and QA. Real patients and production traffic should use your
+      <strong>verified WhatsApp Business</strong> setup after Meta review and number verification — not the temporary test identities alone.
+    </p>
+    <p class="small mb-2"><a href="/admin/webhooks-reference" target="_blank" rel="noopener">Webhooks reference</a> — copy all callback URLs and run webhook self-tests.</p>
+    <p class="small text-muted mb-1"><strong>Twilio webhook for SMS (and WhatsApp via Twilio)</strong></p>
+    <p class="small text-muted mb-0">
+      <strong>Single phone number:</strong> Twilio Console → <strong>Phone Numbers</strong> → choose the number → <strong>Messaging configuration</strong> →
+      “A message comes in” → Webhook → URL <code>https://&lt;your-host&gt;/webhooks/twilio/inbound</code> → HTTP POST.<br/>
+      <strong>Messaging Service:</strong> add your numbers as senders on the service; configure inbound per Twilio’s Messaging Service docs (webhook can be on the service or linked numbers).
+    </p>
+  </div>
+</div>

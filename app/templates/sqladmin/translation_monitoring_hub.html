@@ -1,0 +1,88 @@
+{% extends "sqladmin/layout.html" %}
+{% block content_header %}
+<div class="row align-items-center">
+  <div class="col">
+    <h2 class="page-title">Translation &amp; ML monitoring</h2>
+    <div class="page-pretitle">Choose a section — updated {{ generated_at | format_dt }}</div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="col-12 hc-translation-monitoring">
+  <p class="text-muted mb-4">Each tile opens a full-page view. Use <a href="/healthz/translation" target="_blank" rel="noopener">/healthz/translation</a> for a public JSON probe.</p>
+
+  <div class="hc-tm-tile-grid">
+    <a class="hc-tm-tile" href="/admin/translation-monitoring/detail?section=learning">
+      <span class="hc-tm-tile-label">Learning samples</span>
+      <span class="hc-tm-tile-value">{{ counts.learning_total }}</span>
+      <span class="hc-tm-tile-hint">{{ counts.learning_24h }} last 24h · {{ counts.learning_7d }} last 7d</span>
+    </a>
+
+    <a class="hc-tm-tile" href="/admin/translation-monitoring/detail?section=cache">
+      <span class="hc-tm-tile-label">Translation cache</span>
+      <span class="hc-tm-tile-value">{{ counts.cache_total }}</span>
+      <span class="hc-tm-tile-hint">{{ counts.stale_ml_cache }} stale ML rows</span>
+    </a>
+
+    <a class="hc-tm-tile" href="/admin/translation-monitoring/detail?section=patients">
+      <span class="hc-tm-tile-label">Patients by LANG</span>
+      <span class="hc-tm-tile-value">{{ users_by_lang|length }}</span>
+      <span class="hc-tm-tile-hint">language codes in use</span>
+    </a>
+
+    <a class="hc-tm-tile" href="/admin/translation-monitoring/detail?section=recording">
+      <span class="hc-tm-tile-label">Recording learning</span>
+      <span class="hc-tm-tile-value">{% if config.record_learning %}ON{% else %}OFF{% endif %}</span>
+      <span class="hc-tm-tile-hint">HC_TRANSLATION_RECORD_LEARNING</span>
+    </a>
+
+    <a class="hc-tm-tile hc-tm-tile-accent" href="/admin/translation-monitoring/detail?section=live-test">
+      <span class="hc-tm-tile-label">Pidgin smoke test</span>
+      <span class="hc-tm-tile-value">{% if live_test and live_test.marian_ok %}OK{% else %}Run{% endif %}</span>
+      <span class="hc-tm-tile-hint">Marian + outbound pipeline</span>
+    </a>
+
+    <a class="hc-tm-tile" href="/admin/translation-monitoring/detail?section=runtime">
+      <span class="hc-tm-tile-label">Runtime configuration</span>
+      <span class="hc-tm-tile-value">{{ config.ml_model_version }}</span>
+      <span class="hc-tm-tile-hint">model version · timeouts · API keys</span>
+    </a>
+
+    <a class="hc-tm-tile" href="/admin/translation-monitoring/detail?section=models">
+      <span class="hc-tm-tile-label">Models on disk / RAM</span>
+      <span class="hc-tm-tile-value">{{ assets.marian_loaded|length }}</span>
+      <span class="hc-tm-tile-hint">Marian loaded · FastText · HF cache</span>
+    </a>
+
+    <a class="hc-tm-tile" href="/admin/translation-monitoring/detail?section=language-pairs">
+      <span class="hc-tm-tile-label">Language pairs</span>
+      <span class="hc-tm-tile-value">{{ language_pairs|length }}</span>
+      <span class="hc-tm-tile-hint">top training pairs</span>
+    </a>
+
+    <a class="hc-tm-tile" href="/admin/translation-monitoring/detail?section=recent-learning">
+      <span class="hc-tm-tile-label">Recent training samples</span>
+      <span class="hc-tm-tile-value">{{ recent_learning|length }}</span>
+      <span class="hc-tm-tile-hint">latest rows · browse all</span>
+    </a>
+
+    <a class="hc-tm-tile" href="/admin/translation-monitoring/detail?section=recent-cache">
+      <span class="hc-tm-tile-label">Recent cache updates</span>
+      <span class="hc-tm-tile-value">{{ recent_cache|length }}</span>
+      <span class="hc-tm-tile-hint">latest rows · browse all</span>
+    </a>
+
+    <a class="hc-tm-tile" href="{{ url_for('admin:list', identity='translation-learning-sample') }}">
+      <span class="hc-tm-tile-label">Browse learning samples</span>
+      <span class="hc-tm-tile-value">→</span>
+      <span class="hc-tm-tile-hint">full SQLAdmin table</span>
+    </a>
+
+    <a class="hc-tm-tile" href="{{ url_for('admin:list', identity='translation-cache') }}">
+      <span class="hc-tm-tile-label">Browse translation cache</span>
+      <span class="hc-tm-tile-value">→</span>
+      <span class="hc-tm-tile-hint">full SQLAdmin table</span>
+    </a>
+  </div>
+</div>
+{% endblock %}

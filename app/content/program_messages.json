@@ -1,0 +1,65 @@
+{
+  "maternal_child": {
+    "description": "Maternal and Child Health",
+    "cadence": "weekly",
+    "messages": {
+      "en": {
+        "-32": "Maternal care tip: book your antenatal visit this week and start folic acid/iron if your clinician advises.",
+        "-24": "This week: eat a balanced diet (beans, fish, eggs, vegetables) and drink clean water. If you feel unwell, seek care early.",
+        "-16": "This week: know danger signs (bleeding, severe headache, blurred vision, fever, swollen face/hands). Reply ESCALATE URGENT if you need a call.",
+        "-8": "This week: prepare for delivery. Save emergency numbers, plan transport, pack essentials, and identify your delivery facility.",
+        "-2": "You are close to delivery. Go to the facility if labour starts, your water breaks, bleeding occurs, or baby movement reduces.",
+        "+1": "After birth: keep baby warm, start breastfeeding within 1 hour, and attend immunisation visits as scheduled.",
+        "noedd_0": "Maternal & child tip: general wellness and antenatal care when you are pregnant — book visits early and take folic acid/iron if your clinician advises. (Optional: if you are pregnant and know your due date, your clinic can add it to your record for week-based tips.)",
+        "noedd_1": "Maternal care tip: eat a varied diet, drink clean water, and rest. Seek care early if you feel unwell.",
+        "noedd_2": "Maternal care tip: learn danger signs—bleeding, severe headache, blurred vision, swelling, fever, reduced baby movement—and reply ESCALATE URGENT if you need help."
+      },
+      "pcm": {
+        "-16": "Dis week: know danger signs (bleeding, strong headache, eye dey blur, fever, face/hand swelling). If you need call, reply ESCALATE URGENT."
+      },
+      "ha": {
+        "-16": "A wannan makon: san alamomin haɗari (zubar jini, ciwon kai mai tsanani, gani ya dushe, zazzabi, kumburi). Don kiran telehealth, rubuta: ESCALATE URGENT."
+      },
+      "ig": {
+        "-16": "N'izu a: mara ihe ize ndụ (ọbara na-apụta, isi ọwụwa siri ike, anya na-adịghị ahụ nke ọma, ahụ ọkụ, ọzịza). Maka oku telehealth, zaa: ESCALATE URGENT."
+      },
+      "yo": {
+        "-16": "Ọsẹ yìí: mọ ààmì ewu (jẹ̀jẹ̀, orí fifo tó burú, ojú dídì, ìbà, ìfúnyà). Fun ìpè telehealth, dáhùn: ESCALATE URGENT."
+      }
+    }
+  },
+  "chronic": {
+    "description": "Chronic Diseases",
+    "cadence": "weekly",
+    "messages": {
+      "en": {
+        "0": "Chronic care tip: take your medicines as prescribed. If you miss doses often, send INFO or MENU for support options.",
+        "1": "Chronic care tip: reduce salt and sugary drinks. Choose water and fruits when possible.",
+        "2": "Chronic care tip: check your blood pressure / sugar as advised, and keep a simple log.",
+        "3": "Chronic care tip: walk or do light activity most days (if safe for you)."
+      }
+    }
+  },
+  "youth": {
+    "description": "Youth Health programme",
+    "cadence": "weekly",
+    "messages": {
+      "en": {
+        "0": "Youth health: your body is yours. If you feel unsafe or pressured, talk to a trusted adult or a clinician.",
+        "1": "Youth health: protect your mental health—sleep, talk to someone, and limit substances.",
+        "2": "Youth health: learn about STIs and prevention. If you have symptoms, seek care early."
+      }
+    }
+  },
+  "kidney": {
+    "description": "Dialysis and Kidney",
+    "cadence": "weekly",
+    "messages": {
+      "en": {
+        "0": "Kidney care: take medicines exactly as prescribed and do not use herbal remedies without clinician advice.",
+        "1": "Kidney care: follow your fluid and salt plan; ask your dialysis team what is safe for you.",
+        "2": "Kidney care: do not miss dialysis sessions. Reply APPOINT dialysis if you need help scheduling."
+      }
+    }
+  }
+}

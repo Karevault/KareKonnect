@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+healthconnect.db
+healthconnect.db-journal
+data/attachments/
+vercel-landing/.vercel/
+
+# Neural assets & HF cache (downloaded at deploy / runtime)
+ml_cache/*.ftz
+ml_cache/*.bin
+/tmp/hf_cache/

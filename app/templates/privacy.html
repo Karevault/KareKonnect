@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy policy — Kareconnect</title>
+    <style>
+      :root {
+        --bg: #f1f5f9;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --accent: #0d9488;
+        --radius: 10px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.55;
+        font-size: 15px;
+      }
+      .header {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 1rem 1.25rem;
+      }
+      .header-inner {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .logo { font-weight: 700; font-size: 1.125rem; color: var(--text); text-decoration: none; }
+      .back { font-size: 0.875rem; color: var(--accent); text-decoration: none; font-weight: 500; }
+      .back:hover { text-decoration: underline; }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem 1.5rem 1.25rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+      }
+      h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.25rem; letter-spacing: -0.02em; }
+      .meta { font-size: 0.8125rem; color: var(--muted); margin: 0 0 1.5rem; }
+      h2 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.5rem; color: var(--text); }
+      h2:first-of-type { margin-top: 0; }
+      p, li { color: var(--muted); margin: 0.5rem 0; font-size: 0.9375rem; }
+      ul { padding-left: 1.25rem; margin: 0.5rem 0; }
+      strong { color: var(--text); font-weight: 600; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8125rem; word-break: break-all; color: #475569; }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-inner">
+        <a class="logo" href="/">Kareconnect</a>
+        <a class="back" href="/">← Back to enrolment</a>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <article class="card">
+        <h1>Privacy policy</h1>
+        <p class="meta">Effective date: {{ effective_date }} · Public URL: <span class="mono">{{ base_url }}/privacy</span></p>
+
+        <h2>1. Who this applies to</h2>
+        <p>This policy describes how <strong>the organisation operating this Kareconnect service</strong> (“we”, “us”) handles personal information when you use our enrolment page, messaging channels (such as WhatsApp or SMS), and related tools. Your clinic or programme operator is responsible for configuring the system and for answering questions about your care.</p>
+
+        <h2>2. What we collect</h2>
+        <p>Depending on how you interact with the service, we may process:</p>
+        <ul>
+          <li><strong>Identity &amp; contact:</strong> full name, mobile number in international format, preferred language, and messaging channel.</li>
+          <li><strong>Programme data:</strong> selected health programmes, optional estimated delivery date (EDD) for maternal pathways, and enrolment status.</li>
+          <li><strong>Messages:</strong> text you send to us (commands, questions, keywords) and automated or staff replies we send to you.</li>
+          <li><strong>Support &amp; operations:</strong> helpdesk-style requests, appointment or escalation requests you initiate via text, and technical logs needed to run the service securely.</li>
+        </ul>
+
+        <h2>3. Why we use it</h2>
+        <p>We use this information to operate the programme you joined: send education and reminders, respond to help requests, manage enrolment (including pausing or resuming messages), and improve reliability and safety of the platform. Automated decisions are limited to scripted messaging flows configured by your operator; clinical decisions remain with qualified professionals.</p>
+
+        <h2>4. Legal bases</h2>
+        <p>Where applicable law requires a “legal basis”, we rely on <strong>your consent</strong> when you actively enrol or text join keywords, and on <strong>legitimate interests</strong> of the operator in delivering contracted health information services, subject to your rights and any stricter rules your jurisdiction imposes.</p>
+
+        <h2>5. Messaging providers (processors)</h2>
+        <p>Delivery of WhatsApp or SMS may use third-party gateways configured by the operator, for example <strong>Meta (WhatsApp Cloud API)</strong>, <strong>Twilio</strong>, or <strong>Africa’s Talking</strong>. Those providers process message content and phone numbers under their own terms and privacy policies. We only send what is needed to deliver the service.</p>
+
+        <h2>6. Hosting &amp; security</h2>
+        <p>Data is stored on systems chosen by the operator (for example a secured cloud database). We use industry-standard protections such as encrypted transport (HTTPS), access controls for administrative accounts, and hashed passwords for admin access. No method of storage is perfectly secure; we work to reduce risk.</p>
+
+        <h2>7. Retention</h2>
+        <p>We keep data only as long as needed to run the programme and meet the operator’s legal or clinical record-keeping duties. Retention schedules are set by the operator; contact them if you need deletion or export where the law allows.</p>
+
+        <h2>8. Your rights</h2>
+        <p>Depending on your country, you may have rights to access, correct, delete, restrict, or object to certain processing, and to complain to a supervisory authority. Submit requests to <strong>the organisation that enrolled you</strong> or the contact they publish; we will assist the operator where we can.</p>
+
+        <h2>9. International transfers</h2>
+        <p>Cloud hosting or messaging providers may process data in countries other than yours. The operator is responsible for putting in place appropriate safeguards required by law.</p>
+
+        <h2>10. Children</h2>
+        <p>Programmes involving minors should be operated only with appropriate parental authority or professional duty of care. The operator is responsible for lawful enrolment of children.</p>
+
+        <h2>11. Changes</h2>
+        <p>We may update this policy when features or legal requirements change. The effective date at the top will be revised; material changes should be communicated by your operator where required.</p>
+
+        <h2>12. Contact</h2>
+        <p>For privacy questions, contact <strong>the health organisation or programme</strong> that directed you to Kareconnect. Technical operators may also publish a contact address in their deployment settings.</p>
+      </article>
+    </div>
+  </body>
+</html>

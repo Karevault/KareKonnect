@@ -1,0 +1,42 @@
+{% extends "sqladmin/layout.html" %}
+{% block content_header %}
+<div class="row align-items-center">
+  <div class="col">
+    <h2 class="page-title">Reassign telehealth session</h2>
+    <div class="page-pretitle">Ref {{ session_ref }} · billing {{ billing_status }}</div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="col-12">
+  <div class="card">
+    <div class="card-body">
+      {% if error %}
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+      {% endif %}
+      <p class="mb-3">
+        <strong>Current provider:</strong> {{ current_provider_name }}<br/>
+        <strong>Patient:</strong> <code>{{ patient_phone }}</code>
+      </p>
+      <form method="post" action="/admin/telehealth-session/reassign?pk={{ session_id }}">
+        <div class="mb-3">
+          <label class="form-label" for="provider_id">New provider</label>
+          <select class="form-select" id="provider_id" name="provider_id" required>
+            <option value="" disabled selected>Choose active provider…</option>
+            {% for p in providers %}
+            <option value="{{ p.id }}" {% if p.id == current_provider_id %}disabled{% endif %}>{{ p.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <p class="small text-muted">
+          Updates fee and specialty from the new provider, then resends patient, provider, and helpdesk notifications.
+        </p>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">Reassign and notify</button>
+          <a href="/admin/telehealth-session/details/{{ session_id }}" class="btn btn-link">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

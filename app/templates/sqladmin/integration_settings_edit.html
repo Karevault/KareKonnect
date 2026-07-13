@@ -1,0 +1,7 @@
+{% extends "sqladmin/edit.html" %}
+{% block content %}
+<div class="col-12">
+  {% include "sqladmin/_integration_self_test_panel.html" %}
+</div>
+{{ super() }}
+{% endblock %}

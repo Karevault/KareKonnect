@@ -1,0 +1,19 @@
+{% extends "sqladmin/list.html" %}
+{% block head %}
+{{ super() }}
+<meta http-equiv="refresh" content="30">
+<style>
+  .telehealth-list-hint { font-size: 0.85rem; color: #6c757d; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid mb-2">
+  <div class="row">
+    <div class="col-12 telehealth-list-hint">
+      Refreshes every 30s. Status updates when WhatsApp call webhooks fire, or use <strong>Actions</strong> to mark call started/ended.
+      Badges show provider joined, rating pending, and no-show.
+    </div>
+  </div>
+</div>
+{{ super() }}
+{% endblock %}

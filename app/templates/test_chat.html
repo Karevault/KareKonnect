@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kareconnect Test Chat</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+      .wrap { max-width: 900px; margin: 0 auto; padding: 1rem; }
+      .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+      label { font-size: 0.8rem; color: #475569; display: block; margin-bottom: 0.2rem; }
+      input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.55rem 0.7rem; font-size: 0.95rem; }
+      textarea { min-height: 72px; resize: vertical; }
+      button { border: 0; border-radius: 8px; background: #0d9488; color: #fff; padding: 0.6rem 0.95rem; font-weight: 600; cursor: pointer; }
+      .err { color: #b91c1c; font-size: 0.9rem; margin-bottom: 0.6rem; }
+      .msgs { max-height: 60vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.8rem; background: #fff; }
+      .msg-row { display: flex; margin-bottom: 0.75rem; }
+      .msg-row.user { justify-content: flex-end; }
+      .msg-row.bot { justify-content: flex-start; }
+      .msg-row.system { justify-content: center; }
+      .msg {
+        max-width: 82%;
+        white-space: pre-wrap;
+        border-radius: 12px;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid transparent;
+      }
+      .msg.user {
+        background: #0f766e;
+        border-color: #0f766e;
+        color: #ffffff;
+      }
+      .msg.bot {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #0f172a;
+      }
+      .msg.system {
+        background: #fff7ed;
+        border-color: #fdba74;
+        color: #9a3412;
+      }
+      .who {
+        display: block;
+        font-size: 0.72rem;
+        margin-bottom: 0.2rem;
+        opacity: 0.9;
+        letter-spacing: 0.01em;
+      }
+      .meta { color: #64748b; font-size: 0.8rem; margin-bottom: 0.4rem; }
+      .hint { color: #64748b; font-size: 0.85rem; margin-top: 0.5rem; }
+      code { background: #f1f5f9; border-radius: 4px; padding: 0.1rem 0.25rem; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h2 style="margin:0 0 0.6rem 0">Kareconnect Conversation Tester</h2>
+        <div class="meta">Session: <code>{{ session_id }}</code> — test URL: <code>/test/chat?session_id={{ session_id }}</code></div>
+        <div class="hint">This runs the same inbound router as SMS/WhatsApp webhooks without needing Twilio/Meta.</div>
+      </div>
+      <div class="card">
+        {% if error %}<div class="err">{{ error }}</div>{% endif %}
+        <form method="post" action="/test/chat" id="chat-form">
+          <input type="hidden" name="session_id" value="{{ session_id }}" />
+          <div class="row">
+            <div>
+              <label for="channel">Channel</label>
+              <select id="channel" name="channel">
+                <option value="whatsapp" {% if state.channel == "whatsapp" %}selected{% endif %}>whatsapp</option>
+                <option value="sms" {% if state.channel == "sms" %}selected{% endif %}>sms</option>
+              </select>
+            </div>
+            <div>
+              <label for="phone_e164">From phone (E.164)</label>
+              <input id="phone_e164" name="phone_e164" value="{{ state.phone_e164 }}" />
+            </div>
+          </div>
+          <div class="row" style="margin-top:0.6rem">
+            <div>
+              <label for="to_phone_e164">To phone (service number)</label>
+              <input id="to_phone_e164" name="to_phone_e164" value="{{ state.to_phone_e164 }}" />
+            </div>
+            <div>
+              <label for="body">Message</label>
+              <textarea id="body" name="body" placeholder="Try: JOIN, CHECK, INFO, REMINDERS YES, or normal symptoms text" autocomplete="off"></textarea>
+            </div>
+          </div>
+          <div style="margin-top:0.7rem"><button type="submit">Send Message</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Conversation</h3>
+        <div class="msgs">
+          {% for m in state.messages %}
+            <div class="msg-row {% if m.role == 'user' %}user{% elif m.role == 'system' %}system{% else %}bot{% endif %}">
+              <div class="msg {% if m.role == 'user' %}user{% elif m.role == 'system' %}system{% else %}bot{% endif %}">
+                <span class="who">{% if m.role == "user" %}You{% elif m.role == "system" %}System{% else %}Kareconnect{% endif %}</span>
+                {{ m.text }}
+              </div>
+            </div>
+          {% endfor %}
+          {% if not state.messages %}
+            <div class="meta">No messages yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var form = document.getElementById("chat-form");
+        var input = document.getElementById("body");
+        if (!form || !input) return;
+        form.addEventListener("submit", function () {
+          setTimeout(function () {
+            input.value = "";
+          }, 0);
+        });
+      })();
+    </script>
+  </body>
+</html>

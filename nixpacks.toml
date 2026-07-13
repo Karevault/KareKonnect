@@ -1,0 +1,3 @@
+# FastText lid + Pidgin Marian only (ha/ig/yo/en use Google Translate at runtime).
+[phases.build]
+cmds = ["HC_PREFETCH_MARIAN=pcm python scripts/download_ml_assets.py"]

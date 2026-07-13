@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  {# Path-only URLs so CSS/JS follow the browser scheme (https). url_for() can emit http:// behind Railway when X-Forwarded-Proto is not trusted by uvicorn. #}
+  <link rel="stylesheet" href="/admin/statics/css/tabler.min.css">
+  <link rel="stylesheet" href="/admin/statics/css/tabler-icons.min.css">
+  <link rel="stylesheet" href="/admin/statics/css/fontawesome.min.css">
+  <link rel="stylesheet" href="/admin/statics/css/select2.min.css">
+  <link rel="stylesheet" href="/admin/statics/css/flatpickr.min.css">
+  <link rel="stylesheet" href="/admin/statics/css/main.css">
+  <link rel="stylesheet" href="/admin-hc/healthconnect-admin.css">
+  {% if admin.favicon_url %}
+  <link rel="icon" href="{{ admin.favicon_url }}">
+  {% endif %}
+  {% block head %}
+  {% endblock %}
+  <title>{{ admin.title }}</title>
+</head>
+
+<body>
+  {% block body %}
+  <main>
+    {% block main %}
+    {% endblock %}
+  </main>
+  {% endblock %}
+  <script type="text/javascript" src="/admin/statics/js/jquery.min.js"></script>
+  <script type="text/javascript" src="/admin/statics/js/tabler.min.js"></script>
+  <script type="text/javascript" src="/admin/statics/js/popper.min.js"></script>
+  <script type="text/javascript" src="/admin/statics/js/bootstrap.min.js"></script>
+  <script type="text/javascript" src="/admin/statics/js/select2.full.min.js"></script>
+  <script type="text/javascript" src="/admin/statics/js/flatpickr.min.js"></script>
+  <script type="text/javascript" src="/admin/statics/js/main.js"></script>
+  {% block tail %}
+  {% endblock %}
+</body>
+
+</html>
