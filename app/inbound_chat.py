@@ -38,9 +38,12 @@ from app.appointments import (
 )
 from app.clinical_intelligence import clinical_intelligence_enabled, format_assessment_for_patient, run_clinical_assessment
 from app.services import active_program_codes_for_phone_e164
+from app.karevault_client import assessment_is_complete
 from app.triage import (
     assessment_program_context,
     cancel_active_triage_session,
+    complete_triage_session,
+    consume_completed_consultation,
     current_intake_prompt,
     get_active_triage_session,
     intake_briefing_due,
@@ -219,6 +222,15 @@ def _is_reset_request(upper_line: str, first_token: str) -> bool:
 
 def _looks_like_plain_greeting(body: str) -> bool:
     return bool(_GREETING_ONLY_RE.fullmatch((body or "").strip()))
+
+
+def _is_menu_command(first_token: str, upper_line: str) -> bool:
+    return first_token in ("INFO", "MENU", "COMMANDS", "HELP") or upper_line in (
+        "INFO",
+        "MENU",
+        "COMMANDS",
+        "HELP",
+    )
 
 
 def _starter_menu_text(
@@ -561,6 +573,19 @@ def handle_inbound_text_message(
             )
         )
 
+    # A delivered assessment ends the consultation. The next message brings the patient
+    # back to the welcome menu rather than silently opening another assessment.
+    if not _is_menu_command(first, upper) and not _is_helpdesk_message(body):
+        if consume_completed_consultation(from_phone):
+            return out(
+                _starter_menu_text(
+                    help_keywords=help_keywords,
+                    cfg=cfg,
+                    channel=channel,
+                    enrolled=bool(active_programs),
+                )
+            )
+
     if is_in_telehealth_flow(from_phone):
         return out(
             "You are in a telehealth booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
@@ -593,11 +618,13 @@ def handle_inbound_text_message(
 
     triage = None
     triage_id = None
+    new_consultation = False
     if clinical_intelligence_enabled():
         triage = get_active_triage_session(from_phone)
         if not triage:
-            triage_id = start_triage_session(phone_e164=from_phone, channel=channel)
+            start_triage_session(phone_e164=from_phone, channel=channel)
             triage = get_active_triage_session(from_phone)
+            new_consultation = True
         triage_id = triage.id if triage else None
 
     show_intake_briefing = intake_briefing_due(phone_e164=from_phone, triage_session_id=triage_id)
@@ -637,12 +664,7 @@ def handle_inbound_text_message(
             return out(f"{cfg.unknown_fallback_text}\n\n{cmd_tail}")
         return out(cmd_tail)
 
-    if first in ("INFO", "MENU", "COMMANDS", "HELP") or upper in (
-        "INFO",
-        "MENU",
-        "COMMANDS",
-        "HELP",
-    ):
+    if _is_menu_command(first, upper):
         return out(get_help_menu_text())
 
     if clinical_intelligence_enabled() and triage_id and not intake_complete(triage_session_id=triage_id):
@@ -667,8 +689,14 @@ def handle_inbound_text_message(
         question=body,
         question_english=body_en,
         programs=program_context,
+        new_consultation=new_consultation,
     )
-    kv_t = _truncate_reply(kv, 650)
+    kv_t = _truncate_reply(kv, _KAREVAULT_REPLY_MAX_LEN)
+
+    # The assessment is the end of the consultation: end the session so the next
+    # message is welcomed back to the main menu instead of replaying the diagnosis.
+    if assessment_is_complete(kv):
+        complete_triage_session(triage_id)
 
     triage_block = ""
     if clinical_intelligence_enabled():
@@ -709,6 +737,11 @@ def handle_inbound_text_message(
     if cfg.auto_reply_enabled:
         return out(f"{cfg.unknown_fallback_text}" + _tail_menu_hint(help_keywords))
     return ""
+
+
+# WhatsApp caps a text body at 4096 chars; leave room for the disclaimer, triage
+# block, and command hints that get appended to the assessment.
+_KAREVAULT_REPLY_MAX_LEN = 3000
 
 
 def _truncate_reply(text: Optional[str], max_len: int) -> Optional[str]:

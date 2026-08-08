@@ -772,19 +772,38 @@ def active_program_codes_for_phone_e164(phone_e164: str) -> list[str]:
         return [str(p) for p in rows]
 
 
+_ANSWER_LIKE_RE = re.compile(
+    r"^(y|n|yes+|no+|yeah|yep|nope|nah|ok|okay|sure|maybe|none|nothing|thanks|thank you|ty|"
+    r"hi|hello|hey|not sure|dunno|don'?t know|i don'?t know|mild|severe|moderate|light|heavy)"
+    r"[\s.!,]*$",
+    re.IGNORECASE,
+)
+
+
+def _is_answer_like(text: str) -> bool:
+    """Short confirmations answer an assessment question — they are not FAQ lookups."""
+    t = " ".join((text or "").strip().split())
+    if not t:
+        return True
+    return bool(_ANSWER_LIKE_RE.match(t))
+
+
 def handle_symptom_question(
     *,
     from_phone: str,
     question: str,
     question_english: Optional[str] = None,
     programs: Optional[list[str]] = None,
+    new_consultation: bool = False,
 ) -> Tuple[Optional[str], Optional[str]]:
     """FAQ match + KareVault symptom checker. Does not open a helpdesk ticket."""
     q_en = (question_english or "").strip() or question
     faqs = load_faqs()
-    suggested = best_faq_answer(q_en, faqs)
+    suggested = None if _is_answer_like(q_en) else best_faq_answer(q_en, faqs)
     program_context = programs if programs is not None else active_program_codes_for_phone_e164(from_phone)
-    kv = fetch_symptom_checker_reply(question=q_en, programs=program_context)
+    kv = fetch_symptom_checker_reply(
+        question=q_en, programs=program_context, new_consultation=new_consultation
+    )
     return suggested, kv
 
 

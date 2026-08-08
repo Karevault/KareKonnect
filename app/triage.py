@@ -307,6 +307,55 @@ def get_active_triage_session(phone_e164: str) -> Optional[TriageSession]:
         return row
 
 
+def complete_triage_session(triage_session_id: Optional[str]) -> bool:
+    """
+    End the consultation once the assessment has been delivered.
+
+    Marked "completed" rather than "closed" so the next inbound message can be greeted
+    with the main menu exactly once; consume_completed_consultation() then closes it.
+    """
+    if not triage_session_id:
+        return False
+    now = now_iso()
+    with session_scope() as s:
+        row = s.get(TriageSession, triage_session_id)
+        if not row or row.status != "active":
+            return False
+        row.status = "completed"
+        row.closed_at = now
+        row.updated_at = now
+        return True
+
+
+def consume_completed_consultation(phone_e164: str) -> bool:
+    """
+    True once after a consultation finished, so the caller can show the welcome menu.
+
+    Flips the session to "closed" so the greeting is not repeated on later messages.
+    """
+    phone = normalize_phone_e164(phone_e164)
+    now = now_iso()
+    consumed = False
+    with session_scope() as s:
+        # created_at only has second precision, so match on status instead of ordering:
+        # at most one consultation is awaiting acknowledgement at any time.
+        rows = (
+            s.execute(
+                select(TriageSession).where(
+                    TriageSession.phone_e164 == phone,
+                    TriageSession.status == "completed",
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for row in rows:
+            row.status = "closed"
+            row.updated_at = now
+            consumed = True
+    return consumed
+
+
 def cancel_active_triage_session(phone_e164: str) -> bool:
     phone = normalize_phone_e164(phone_e164)
     now = now_iso()

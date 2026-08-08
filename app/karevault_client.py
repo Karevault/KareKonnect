@@ -60,12 +60,36 @@ def _use_public_chat() -> bool:
     return not _use_partner()
 
 
-def build_contextual_question(question: str, programs: list[str]) -> str:
+_ASSESSMENT_COMPLETE_MARKERS = (
+    "completed your medical assessment",
+    "completed your assessment",
+    "primary diagnosis:",
+)
+
+
+def assessment_is_complete(reply: Optional[str]) -> bool:
+    """True when KareVault has delivered its final assessment, so the consultation is over."""
+    text = (reply or "").lower()
+    if not text:
+        return False
+    return any(marker in text for marker in _ASSESSMENT_COMPLETE_MARKERS)
+
+
+def build_contextual_question(
+    question: str, programs: list[str], *, new_consultation: bool = False
+) -> str:
     q = (question or "").strip()[:1200]
     bits = [_PROGRAM_CONTEXT[p] for p in programs if p in _PROGRAM_CONTEXT]
     ctx = " ".join(bits) if bits else "Context: general health education patient (programme not specified)."
+    reset = (
+        "This is a NEW consultation. Discard every earlier message, symptom, and assessment from this "
+        "conversation and start over using only the patient message below. "
+        if new_consultation
+        else ""
+    )
     return (
         f"{ctx} You support an SMS/WhatsApp health education service. "
+        f"{reset}"
         "Reply with concise, practical information; clearly say when to seek urgent in-person or emergency care. "
         "Do not give specific drug doses. Patient message: "
         f"{q}"
@@ -107,13 +131,15 @@ def _get_partner_access_token() -> Optional[str]:
             return None
 
 
-def fetch_symptom_checker_reply(*, question: str, programs: list[str]) -> Optional[str]:
+def fetch_symptom_checker_reply(
+    *, question: str, programs: list[str], new_consultation: bool = False
+) -> Optional[str]:
     """
     Returns plain-text AI reply for the patient, or None if disabled / error.
     """
     if not karevault_enabled():
         return None
-    message = build_contextual_question(question, programs)
+    message = build_contextual_question(question, programs, new_consultation=new_consultation)
     base = _base()
     try:
         if _use_partner():
