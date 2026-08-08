@@ -280,8 +280,28 @@ def start_triage_session(
         return tid
 
 
+def triage_inactivity_timeout_minutes() -> int:
+    raw = (os.getenv("HC_TRIAGE_INACTIVITY_TIMEOUT_MINUTES") or "20").strip()
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return 20
+
+
+def _inactivity_cutoff_iso() -> str:
+    minutes = triage_inactivity_timeout_minutes()
+    dt = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    return dt.replace(microsecond=0).isoformat()
+
+
+def _triage_session_is_inactive(row: TriageSession, cutoff_iso: str) -> bool:
+    ts = (row.updated_at or row.created_at or cutoff_iso)
+    return ts < cutoff_iso
+
+
 def get_active_triage_session(phone_e164: str) -> Optional[TriageSession]:
     now = now_iso()
+    cutoff = _inactivity_cutoff_iso()
     with session_scope() as s:
         row = (
             s.execute(
@@ -299,6 +319,11 @@ def get_active_triage_session(phone_e164: str) -> Optional[TriageSession]:
         if not row:
             return None
         if row.expires_at and row.expires_at < now:
+            row.status = "closed"
+            row.closed_at = now
+            row.updated_at = now
+            return None
+        if _triage_session_is_inactive(row, cutoff):
             row.status = "closed"
             row.closed_at = now
             row.updated_at = now
@@ -329,30 +354,38 @@ def complete_triage_session(triage_session_id: Optional[str]) -> bool:
 
 def consume_completed_consultation(phone_e164: str) -> bool:
     """
-    True once after a consultation finished, so the caller can show the welcome menu.
+    True once after a consultation finished or went idle, so the caller can show the welcome menu.
 
     Flips the session to "closed" so the greeting is not repeated on later messages.
     """
     phone = normalize_phone_e164(phone_e164)
     now = now_iso()
+    cutoff = _inactivity_cutoff_iso()
     consumed = False
     with session_scope() as s:
         # created_at only has second precision, so match on status instead of ordering:
         # at most one consultation is awaiting acknowledgement at any time.
+        # Also expire any active session that has not received a reply within the inactivity window.
         rows = (
             s.execute(
                 select(TriageSession).where(
                     TriageSession.phone_e164 == phone,
-                    TriageSession.status == "completed",
+                    TriageSession.status.in_(["active", "completed"]),
                 )
             )
             .scalars()
             .all()
         )
         for row in rows:
-            row.status = "closed"
-            row.updated_at = now
-            consumed = True
+            if row.status == "active" and _triage_session_is_inactive(row, cutoff):
+                row.status = "closed"
+                row.closed_at = now
+                row.updated_at = now
+                consumed = True
+            elif row.status == "completed":
+                row.status = "closed"
+                row.updated_at = now
+                consumed = True
     return consumed
 
 

@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import unittest
+from datetime import datetime, timedelta, timezone
 
+from app.database import session_scope
+from app.models import TriageSession
 from app.triage import (
+    cancel_active_triage_session,
     complete_triage_session,
     consume_completed_consultation,
     get_active_triage_session,
@@ -19,8 +23,6 @@ class ConsultationEndsAtMenuTests(unittest.TestCase):
         # Leave no session from an earlier run in a state that can leak into these tests.
         while consume_completed_consultation(PHONE):
             pass
-        from app.triage import cancel_active_triage_session
-
         cancel_active_triage_session(PHONE)
 
     def test_completed_session_is_no_longer_active(self) -> None:
@@ -66,6 +68,37 @@ class ConsultationEndsAtMenuTests(unittest.TestCase):
         self.assertTrue(complete_triage_session(tid))
         self.assertFalse(complete_triage_session(tid))
         self.assertFalse(complete_triage_session(None))
+
+
+class InactivityTimeoutTests(unittest.TestCase):
+    def setUp(self) -> None:
+        while consume_completed_consultation(PHONE):
+            pass
+        cancel_active_triage_session(PHONE)
+
+    def _backdate(self, triage_session_id: str, minutes: int) -> None:
+        old = (
+            datetime.now(timezone.utc) - timedelta(minutes=minutes)
+        ).replace(microsecond=0).isoformat()
+        with session_scope() as s:
+            row = s.get(TriageSession, triage_session_id)
+            if row:
+                row.updated_at = old
+
+    def test_inactive_session_is_not_returned_as_active(self) -> None:
+        tid = start_triage_session(phone_e164=PHONE, channel="whatsapp")
+        self._backdate(tid, 30)
+        self.assertIsNone(get_active_triage_session(PHONE))
+
+    def test_inactive_session_triggers_main_menu(self) -> None:
+        tid = start_triage_session(phone_e164=PHONE, channel="whatsapp")
+        self._backdate(tid, 30)
+        self.assertTrue(consume_completed_consultation(PHONE))
+        self.assertFalse(consume_completed_consultation(PHONE))
+
+    def test_fresh_session_is_not_expired(self) -> None:
+        start_triage_session(phone_e164=PHONE, channel="whatsapp")
+        self.assertFalse(consume_completed_consultation(PHONE))
 
 
 if __name__ == "__main__":
