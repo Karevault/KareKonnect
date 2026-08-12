@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from typing import Any, Literal, Optional
+from urllib.parse import quote
 
 from app.africastalking import normalize_at_phone_number
 from app.integration_config import get_effective_integration
@@ -61,7 +62,7 @@ from app.telehealth import (
     start_telehealth_flow,
     submit_rating,
 )
-from app.util import normalize_inbound_body, normalize_phone_e164
+from app.util import normalize_inbound_body, normalize_phone_e164, best_faq_answer, load_faqs
 
 
 def _first_command_token(upper_line: str) -> str:
@@ -89,6 +90,10 @@ _SYMPTOM_WORD_RE = re.compile(
     re.I,
 )
 _SERVICE_SCOPE_RE = re.compile(r"\b(only for pregnant women|only pregnant|pregnant women only|for men too|for children too|only for women)\b", re.I)
+_COMPLAINT_RE = re.compile(
+    r"\b(complaint|complaints|complain(?:ing)?|lodge a complaint|report (?:an issue|a problem)|dissatisfied|unhappy with (?:the|this|your) service)\b",
+    re.I,
+)
 
 _LANGUAGE_NAME_TO_CODE = {
     "english": "en",
@@ -104,6 +109,30 @@ _LANGUAGE_NAME_TO_CODE = {
     "yoruba": "yo",
     "yo": "yo",
 }
+
+
+def _wa_bold(text: str) -> str:
+    """Bold every non-empty line for WhatsApp (asterisks do not span line breaks)."""
+    out_lines = []
+    for ln in (text or "").splitlines():
+        t = ln.strip()
+        if t and not (t.startswith("*") and t.endswith("*") and len(t) > 1):
+            out_lines.append(f"*{t}*")
+        else:
+            out_lines.append(ln)
+    return "\n".join(out_lines)
+
+
+def _wa_italic(text: str) -> str:
+    """Italicise every non-empty line for WhatsApp."""
+    out_lines = []
+    for ln in (text or "").splitlines():
+        t = ln.strip()
+        if t and not (t.startswith("_") and t.endswith("_") and len(t) > 1):
+            out_lines.append(f"_{t}_")
+        else:
+            out_lines.append(ln)
+    return "\n".join(out_lines)
 
 
 def _tail_menu_hint(help_keywords: list[str]) -> str:
@@ -244,19 +273,19 @@ def _starter_menu_text(
     lang_cmd = cfg.lang_command_keyword.upper().strip() or "LANG"
     lines = ["Welcome to Kareconnect.", "", "Quick start:"]
     if enrolled:
-        lines.append("1. Health question — send one short message in your own words.")
+        lines.append("1. Health question — send one short message.")
     else:
-        lines.append("1. Join this service — send JOIN.")
+        lines.append("1. Join — send JOIN.")
     lines.extend(
         [
             f"2. Full menu — send {bits}.",
             f"3. Book care — send {cfg.appoint_keyword.upper().strip()} or {cfg.telehealth_keyword.upper().strip()}.",
-            f"4. Choose language — send {lang_cmd}, or reply English, Pidgin, Hausa, Igbo, or Yoruba.",
-            "5. Restart anytime — send RESET or START OVER.",
+            f"4. Language — send {lang_cmd}.",
+            "5. Reset — send RESET.",
         ]
     )
     if channel == "whatsapp":
-        lines.append("6. On WhatsApp, you can also send photos, PDF results, or a voice note.")
+        lines.append("6. WhatsApp: send photos, PDFs, or a voice note.")
     return "\n".join(lines)
 
 
@@ -302,17 +331,14 @@ def _join_welcome_text(help_keywords: list[str], channel: Literal["sms", "whatsa
     core = (
         "Welcome to Kareconnect. You are now enrolled.\n\n"
         "Programmes: maternal & child, chronic disease, youth health, kidney care.\n\n"
-        "1. Health questions — reply in your own words (not a command). "
-        'Example: "bad headache two days" or "swollen feet". We use our FAQ and symptom checker.\n'
-        "2. Talk to our team — start your message with Helpdesk. "
-        'Example: Helpdesk I need to speak to a nurse.\n'
-        f"3. All commands — send {bits} (LANG, STOP, APPOINT, …)."
+        "1. Health questions — reply in your own words (e.g. \"bad headache two days\").\n"
+        "2. Talk to our team — start with Helpdesk (e.g. Helpdesk I need to speak to a nurse).\n"
+        f"3. All commands — send {bits}."
     )
     if channel == "whatsapp":
         core += (
-            "\n\nOptional: send REMINDERS YES for at most one WhatsApp programme education tip per day "
-            "(send REMINDERS NO anytime to turn those tips off). "
-            "Send a voice note with your question, or VOICE YES for short voice replies."
+            "\n\nWhatsApp: send photos, PDFs, or voice notes. "
+            "REMINDERS YES for daily tips, VOICE YES for voice replies."
         )
     return core
 
@@ -573,6 +599,35 @@ def handle_inbound_text_message(
             )
         )
 
+    # An active booking flow always outranks the generic symptom/FAQ handler:
+    # never let a mid-booking reply fall through to a wrong-context response.
+    # But if the user asks a question mid-flow, answer it then re-prompt.
+    if is_in_telehealth_flow(from_phone):
+        body_en_flow = text_for_english_pipeline(body, user_lang)
+        if _is_question_like(body_en_flow) and not _SYMPTOM_WORD_RE.search(body_en_flow):
+            faq_ans = best_faq_answer(body_en_flow, load_faqs())
+            if faq_ans:
+                return out(
+                    faq_ans
+                    + "\n\nYou are still in a telehealth booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
+                )
+        return out(
+            "You are in a telehealth booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
+        )
+
+    if is_in_appointment_flow(from_phone):
+        body_en_flow = text_for_english_pipeline(body, user_lang)
+        if _is_question_like(body_en_flow) and not _SYMPTOM_WORD_RE.search(body_en_flow):
+            faq_ans = best_faq_answer(body_en_flow, load_faqs())
+            if faq_ans:
+                return out(
+                    faq_ans
+                    + "\n\nYou are still in an appointment booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
+                )
+        return out(
+            "You are in appointment booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
+        )
+
     # A delivered assessment ends the consultation. The next message brings the patient
     # back to the welcome menu rather than silently opening another assessment.
     if not _is_menu_command(first, upper) and not _is_helpdesk_message(body):
@@ -586,16 +641,6 @@ def handle_inbound_text_message(
                 )
             )
 
-    if is_in_telehealth_flow(from_phone):
-        return out(
-            "You are in a telehealth booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
-        )
-
-    if is_in_appointment_flow(from_phone):
-        return out(
-            "You are in appointment booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
-        )
-
     body_en = text_for_english_pipeline(body, user_lang)
     bits = ", ".join(help_keywords[:3]) if help_keywords else "INFO, MENU, COMMANDS"
     disc = "\n\n(Information only—not a diagnosis. Emergencies: go to the nearest facility.)"
@@ -604,10 +649,17 @@ def handle_inbound_text_message(
     if direct_info:
         return out(direct_info)
 
+    # Complaints are a support intent, not a clinical consultation.
+    if _COMPLAINT_RE.search(body_en) and not _SYMPTOM_WORD_RE.search(body_en):
+        return out(
+            "To lodge a complaint or reach our support team, start your message with Helpdesk followed by the details. "
+            "Example: Helpdesk I want to lodge a complaint about my appointment. "
+            "We will open a ticket and follow up with you on this chat."
+            + _tail_menu_hint(help_keywords)
+        )
+
     faq_only = None
     if _is_question_like(body_en):
-        from app.util import best_faq_answer, load_faqs
-
         faq_only = best_faq_answer(body_en, load_faqs())
         if _should_treat_as_informational_query(body_en, faq_suggested=faq_only) and faq_only:
             return out(
@@ -658,11 +710,18 @@ def handle_inbound_text_message(
             f"Send another message starting with Helpdesk to add more (ref {ticket_id}). "
             f"Commands: {bits}."
         )
+        helpdesk_link = ""
+        if hp_raw:
+            hd_phone_digits = re.sub(r"\D", "", hp_raw)
+            prefilled = f"Follow up on ticket {ticket_id}"
+            helpdesk_link = (
+                f"\nTap to talk to support: https://wa.me/{hd_phone_digits}?text={quote(prefilled)}"
+            )
         if suggested:
-            return out(f"Suggested answer: {suggested}\n\n{cmd_tail}")
+            return out(f"Suggested answer: {suggested}\n\n{cmd_tail}{helpdesk_link}")
         if cfg.auto_reply_enabled:
-            return out(f"{cfg.unknown_fallback_text}\n\n{cmd_tail}")
-        return out(cmd_tail)
+            return out(f"{cfg.unknown_fallback_text}\n\n{cmd_tail}{helpdesk_link}")
+        return out(f"{cmd_tail}{helpdesk_link}")
 
     if _is_menu_command(first, upper):
         return out(get_help_menu_text())
@@ -721,19 +780,26 @@ def handle_inbound_text_message(
                 "clinical assessment failed phone=%s", from_phone
             )
 
-    def _append_cmd(msg: str) -> str:
-        if cmd_tail:
-            return f"{msg}\n\n{cmd_tail}"
-        return msg
+    # Reply layout: Dr. KareVault's response always comes first (bold on WhatsApp),
+    # then the disclaimer, then the command list in italics — clearly separated at the end.
+    tail_cmds = cmd_tail or f"Send {bits} for the full command list."
+    if channel == "whatsapp":
+        tail_cmds = _wa_italic(tail_cmds)
 
-    if suggested and kv_t:
-        return out(_append_cmd(f"Suggested answer: {suggested}{disc}\n\nMore info:\n{kv_t}{triage_block}"))
-    if suggested:
-        return out(_append_cmd(f"Suggested answer: {suggested}{disc}{triage_block}"))
+    def _compose(main: str) -> str:
+        pieces = [main.strip(), disc.strip()]
+        if triage_block.strip():
+            pieces.append(triage_block.strip())
+        pieces.append(tail_cmds)
+        return "\n\n".join(p for p in pieces if p)
+
     if kv_t:
-        return out(_append_cmd(f"{kv_t}{disc}{triage_block}"))
-    if triage_block:
-        return out(_append_cmd(f"{triage_block.strip()}{disc}"))
+        main = _wa_bold(kv_t) if channel == "whatsapp" else kv_t
+        return out(_compose(main))
+    if suggested:
+        return out(_compose(suggested))
+    if triage_block.strip():
+        return out("\n\n".join([triage_block.strip(), disc.strip(), tail_cmds]))
     if cfg.auto_reply_enabled:
         return out(f"{cfg.unknown_fallback_text}" + _tail_menu_hint(help_keywords))
     return ""

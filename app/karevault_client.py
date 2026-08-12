@@ -90,8 +90,11 @@ def build_contextual_question(
     return (
         f"{ctx} You support an SMS/WhatsApp health education service. "
         f"{reset}"
-        "Reply with concise, practical information; clearly say when to seek urgent in-person or emergency care. "
-        "Do not give specific drug doses. Patient message: "
+        "Anchor your reply to the symptom or concern the patient describes below. "
+        "Reply in 2-4 short sentences — practical and direct. "
+        "Clearly say when to seek urgent in-person or emergency care. "
+        "Do not give specific drug doses. "
+        "Patient message:\n"
         f"{q}"
     )
 

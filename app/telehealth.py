@@ -21,6 +21,39 @@ _log = logging.getLogger(__name__)
 
 FlowStep = Literal["idle", "profession", "provider", "confirm"]
 
+# Accepted confirmation replies (compared against the first alphanumeric token, so
+# "YES.", "yes please", "Confirm" all work).
+CONFIRM_TOKENS = ("YES", "Y", "YEAH", "YEP", "CONFIRM", "OK", "OKAY", "BOOK", "PROCEED")
+
+# Commands that must always escape an active booking flow back to the main router.
+ROUTER_ESCAPE_COMMANDS = (
+    "APPOINT",
+    "TELEHEALTH",
+    "JOIN",
+    "STOP",
+    "START",
+    "LANG",
+    "RATE",
+    "TRIAGE",
+    "ESCALATE",
+    "RPM",
+    "HELPDESK",
+    "INFO",
+    "MENU",
+    "COMMANDS",
+    "HELP",
+    "RESET",
+)
+
+
+def format_provider_name(title: Optional[str], full_name: Optional[str]) -> str:
+    """Join title + name without duplicating the title (avoids \"Dr. Dr. Fatima Yusuf\")."""
+    t = (title or "").strip()
+    n = (full_name or "").strip()
+    if t and n.lower().startswith(t.lower().rstrip(".")):
+        return n
+    return f"{t} {n}".strip()
+
 _OPEN_SESSION_STATUSES = ("confirmed", "in_progress")
 
 PROFESSIONS: list[tuple[str, str]] = [
@@ -261,9 +294,7 @@ def _provider_menu_text(s: Session, profession: str) -> str:
         avg, cnt = _provider_rating_summary(s, p.id)
         rating = f"★ {avg:.1f} ({cnt})" if cnt else "No ratings yet"
         fee = format_fee(p.fee_ngn, p.currency)
-        title = (p.title or "").strip()
-        name = (p.full_name or "").strip()
-        display = f"{title} {name}".strip() if title else name
+        display = format_provider_name(p.title, p.full_name)
         avail = provider_availability_label(s, p.id)
         suffix = ""
         if avail == "awaiting_payment":
@@ -284,7 +315,7 @@ def _confirm_text(s: Session, provider: TelehealthProvider) -> str:
     fee = format_fee(provider.fee_ngn, provider.currency)
     avg, cnt = _provider_rating_summary(s, provider.id)
     rating = f"Average rating: {avg:.1f}/5 ({cnt} reviews)" if cnt else "No ratings yet"
-    name = ((provider.title or "") + " " + (provider.full_name or "")).strip()
+    name = format_provider_name(provider.title, provider.full_name)
     return (
         f"Confirm telehealth booking:\n"
         f"Provider: {name} ({profession_label(provider.profession)})\n"
@@ -304,7 +335,7 @@ def _provider_display_name(provider: Optional[TelehealthProvider], *, override: 
         return override.strip()
     if provider is None:
         return "Your clinician"
-    return ((provider.title or "") + " " + (provider.full_name or "")).strip() or "Your clinician"
+    return format_provider_name(provider.title, provider.full_name) or "Your clinician"
 
 
 def _format_whatsapp_contact(phone_e164: str) -> tuple[str, str]:
@@ -509,7 +540,7 @@ def notify_provider_new_booking(session_id: str, *, payment_received: bool = Fal
         )
         ref = _session_ref(session_id)
         fee = format_fee(session.fee_ngn, session.currency)
-        name = ((provider.title or "") + " " + (provider.full_name or "")).strip()
+        name = format_provider_name(provider.title, provider.full_name)
         if payment_received:
             headline = f"Payment received — telehealth {ref}"
             tail = "Patient is ready for the video consultation."
@@ -568,7 +599,7 @@ def notify_helpdesk_telehealth_booking(
             if session.mask_patient_number
             else session.patient_phone_e164
         )
-        prov_name = ((provider.title or "") + " " + (provider.full_name or "")).strip()
+        prov_name = format_provider_name(provider.title, provider.full_name)
         specialty = profession_label(session.profession_snapshot)
         billing = session.billing_status
         channel = session.channel
@@ -715,7 +746,7 @@ def reassign_telehealth_provider(session_id: str, new_provider_id: str) -> tuple
         session.currency = new_provider.currency
         session.updated_at = now_iso()
         billing = session.billing_status
-        provider_name = ((new_provider.title or "") + " " + (new_provider.full_name or "")).strip()
+        provider_name = format_provider_name(new_provider.title, new_provider.full_name)
 
     resend_patient_telehealth_message(session_id, notify_provider=False)
     notify_provider_new_booking(session_id, payment_received=billing in ("paid", "waived"))
@@ -958,7 +989,7 @@ def _finalize_new_booking_impl(s: Session, session_id: str) -> str:
             billing_status="waived",
             call_initiated=call_ok,
             call_note=call_note,
-            provider_name=f"{provider_title or ''} {provider_name or ''}".strip(),
+            provider_name=format_provider_name(provider_title, provider_name),
             provider_contact_phone=provider_contact,
         )
 
@@ -1231,7 +1262,7 @@ def send_post_call_feedback_prompts(session_id: str, *, force: bool = False) -> 
             .scalar_one_or_none()
             is not None
         )
-        prov_name = ((provider.title or "") + " " + (provider.full_name or "")).strip()
+        prov_name = format_provider_name(provider.title, provider.full_name)
         prov_phone = (provider.contact_phone_e164 or "").strip()
         base = (get_effective_integration().hc_base_url or "").rstrip("/")
         admin_url = f"{base}/admin/telehealth-session/details/{session_id}"
@@ -1397,7 +1428,9 @@ def handle_telehealth_message(
 
         if flow.step == "profession":
             if not text.isdigit():
-                return None
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return "Reply with the number of a specialty from the list, BACK, or CANCEL to exit."
             items = [item for item in list_professions_with_counts() if item["count"] > 0]
             idx = int(text)
             if idx < 1 or idx > len(items):
@@ -1410,7 +1443,9 @@ def handle_telehealth_message(
 
         if flow.step == "provider":
             if not text.isdigit():
-                return None
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return "Reply with the number of a clinician from the list, BACK, or CANCEL to exit."
             if not flow.profession_code:
                 flow.step = "profession"
                 return _profession_menu_text()
@@ -1431,8 +1466,13 @@ def handle_telehealth_message(
             return _confirm_text(s, provider)
 
         if flow.step == "confirm":
-            if upper not in ("YES", "Y", "CONFIRM", "OK"):
-                return None
+            if first not in CONFIRM_TOKENS:
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return (
+                    "To finish this telehealth booking, reply YES (or CONFIRM). "
+                    "Reply BACK to choose another provider or CANCEL to exit."
+                )
             if not flow.selected_provider_id:
                 _reset_flow(flow)
                 return "Session expired. Send TELEHEALTH to start again."

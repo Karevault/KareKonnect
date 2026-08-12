@@ -61,7 +61,7 @@ class MenuAndResetRoutingTests(unittest.TestCase):
         cancel_telehealth.assert_called_once()
         cancel_triage.assert_called_once()
         self.assertIn("cleared your active conversation flow", reply)
-        self.assertIn("RESET or START OVER", reply)
+        self.assertIn("send RESET", reply)
         self.assertIn("APPOINT or TELEHEALTH", reply)
 
     def test_plain_greeting_returns_starter_menu_for_new_user(self):
@@ -70,7 +70,7 @@ class MenuAndResetRoutingTests(unittest.TestCase):
         self.assertIn("Welcome to Kareconnect", reply)
         self.assertIn("send JOIN", reply)
         self.assertIn("send INFO, MENU, COMMANDS", reply)
-        self.assertIn("send LANG, or reply English", reply)
+        self.assertIn("send LANG", reply)
 
 
 if __name__ == "__main__":

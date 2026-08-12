@@ -63,6 +63,34 @@ def _extension_for_mime(mime: Optional[str], media_type: str) -> str:
     return ".bin"
 
 
+_LAB_VALUE_RE = re.compile(
+    r"(?im)\b(ha1c|hba1c|blood\s*(?:glucose|sugar)|glucose|cholesterol|ldl|hdl|"
+    r"triglyceride|creatinine|urea|potassium|sodium|haemoglobin|hemoglobin|"
+    r"white\s*blood\s*cell|wbc|platelet|blood\s*pressure|bp|pulse|heart\s*rate)\b"
+    r"[\s:]*([0-9]+(?:\.[0-9]+)?)\s*(mg/dl|mmol/l|g/dl|%|mmhg|bpm|x\s*10\^?[0-9]/l)?"
+)
+
+
+def _extract_lab_summary(ocr_text: Optional[str]) -> str:
+    """Extract key lab values from OCR text for a concise patient-facing summary."""
+    if not ocr_text:
+        return ""
+    hits: list[str] = []
+    seen: set[str] = set()
+    for m in _LAB_VALUE_RE.finditer(ocr_text):
+        label = m.group(1).strip().lower()
+        value = m.group(2).strip()
+        unit = (m.group(3) or "").strip()
+        key = f"{label}:{value}"
+        if key not in seen:
+            seen.add(key)
+            unit_str = f" {unit}" if unit else ""
+            hits.append(f"{label.title()}: {value}{unit_str}")
+    if not hits:
+        return ""
+    return "Key values: " + " | ".join(hits[:6])
+
+
 def _join_processing_errors(*errors: Optional[str]) -> Optional[str]:
     parts: list[str] = []
     seen: set[str] = set()
@@ -220,7 +248,7 @@ def process_inbound_whatsapp_media(
         )
         result = run_clinical_assessment(
             phone_e164=phone,
-            patient_text=caption,
+            patient_text=combined_text,
             ocr_text=ocr_text,
             vision_summaries=[vision_summary] if vision_summary else None,
             media_categories=[media_category],
@@ -269,6 +297,9 @@ def process_inbound_whatsapp_media(
     elif ocr_text:
         preview = re.sub(r"\s+", " ", ocr_text).strip()[:400]
         lines.append(f"Document text (extract): {preview}")
+    lab_summary = _extract_lab_summary(ocr_text)
+    if lab_summary:
+        lines.append(lab_summary)
     if glucose_block:
         lines.append(glucose_block)
     elif assessment_text:

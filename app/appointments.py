@@ -27,11 +27,14 @@ from app.models import (
 )
 from app.services import active_program_codes_for_phone_e164
 from app.telehealth import (
+    CONFIRM_TOKENS,
+    ROUTER_ESCAPE_COMMANDS,
     _available_providers_stmt,
     _busy_provider_ids,
     _provider_rating_summary,
     finalize_new_booking,
     format_fee,
+    format_provider_name,
     list_professions_with_counts,
     new_booking_session_status,
     profession_label,
@@ -181,9 +184,7 @@ def _provider_menu_text(s: Session, profession: str) -> str:
         avg, cnt = _provider_rating_summary(s, p.id)
         rating = f"★ {avg:.1f} ({cnt})" if cnt else "No ratings yet"
         fee = format_fee(p.fee_ngn, p.currency)
-        title = (p.title or "").strip()
-        name = (p.full_name or "").strip()
-        display = f"{title} {name}".strip() if title else name
+        display = format_provider_name(p.title, p.full_name)
         avail = provider_availability_label(s, p.id)
         avail_tag = " — available now" if avail == "free" else ""
         lines.append(f"{i}. {display} — {fee} — {rating}{avail_tag}")
@@ -195,7 +196,7 @@ def _confirm_text(s: Session, provider: TelehealthProvider, reason: str) -> str:
     fee = format_fee(provider.fee_ngn, provider.currency)
     avg, cnt = _provider_rating_summary(s, provider.id)
     rating = f"Average rating: {avg:.1f}/5 ({cnt} reviews)" if cnt else "No ratings yet"
-    name = ((provider.title or "") + " " + (provider.full_name or "")).strip()
+    name = format_provider_name(provider.title, provider.full_name)
     avail = provider_availability_label(s, provider.id)
     if avail != "free":
         return (
@@ -523,7 +524,7 @@ def appointment_scheduled_time(appt: Appointment) -> Optional[str]:
 
 def _appointment_event_dict(appt: Appointment, providers: dict[str, TelehealthProvider]) -> dict[str, Any]:
     prov = providers.get(appt.provider_id) if appt.provider_id else None
-    prov_name = f"{prov.title or ''} {prov.full_name or ''}".strip() if prov else ""
+    prov_name = format_provider_name(prov.title, prov.full_name) if prov else ""
     cal_date = appointment_calendar_date(appt)
     return {
         "id": appt.id,
@@ -726,9 +727,7 @@ def list_active_providers_for_assign(*, profession: Optional[str] = None) -> lis
         out: list[dict[str, Any]] = []
         for p in providers:
             avail = provider_availability_label(s, p.id)
-            title = (p.title or "").strip()
-            name = (p.full_name or "").strip()
-            display = f"{title} {name}".strip() if title else name
+            display = format_provider_name(p.title, p.full_name)
             out.append(
                 {
                     "id": p.id,
@@ -765,7 +764,7 @@ def get_appointment_assign_context(appointment_id: str) -> Optional[dict[str, An
             "profession": appt.profession,
             "current_provider_id": appt.provider_id,
             "current_provider_name": (
-                f"{prov.title or ''} {prov.full_name or ''}".strip() if prov else "—"
+                format_provider_name(prov.title, prov.full_name) if prov else "—"
             ),
             "providers": list_active_providers_for_assign(profession=appt.profession),
         }
@@ -793,7 +792,7 @@ def notify_patient_appointment_confirmed(appointment_id: str) -> tuple[bool, str
         if when:
             body += f"\nWhen: {when}"
         if prov:
-            body += f"\nClinician: {(prov.title or '')} {prov.full_name}".strip()
+            body += f"\nClinician: {format_provider_name(prov.title, prov.full_name)}"
         body += "\n\nReply MENU for commands."
 
     ch: Literal["sms", "whatsapp"] = "whatsapp" if channel == "whatsapp" else "sms"
@@ -823,7 +822,7 @@ def notify_patient_appointment_rescheduled(appointment_id: str) -> tuple[bool, s
             body += f"\nNew time: {when}"
         body += f"\nReason: {(appt.reason or '')[:200]}"
         if prov:
-            body += f"\nClinician: {(prov.title or '')} {prov.full_name}".strip()
+            body += f"\nClinician: {format_provider_name(prov.title, prov.full_name)}"
         body += "\n\nReply MENU for commands."
 
     ch: Literal["sms", "whatsapp"] = "whatsapp" if channel == "whatsapp" else "sms"
@@ -1031,7 +1030,9 @@ def handle_appointment_message(
                 flow.updated_at = now_iso()
                 return _visit_type_menu(reason_hint=flow.reason)
             if not text.isdigit():
-                return None
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return "Reply with the number of a specialty from the list, BACK, or CANCEL to exit."
             items = [item for item in list_professions_with_counts() if item["count"] > 0]
             idx = int(text)
             if idx < 1 or idx > len(items):
@@ -1050,7 +1051,9 @@ def handle_appointment_message(
                 flow.updated_at = now_iso()
                 return _profession_menu_text()
             if not text.isdigit():
-                return None
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return "Reply with the number of a clinician from the list, BACK, or CANCEL to exit."
             if not flow.profession_code:
                 flow.step = "profession"
                 return _profession_menu_text()
@@ -1075,8 +1078,13 @@ def handle_appointment_message(
                     return _provider_menu_text(s, flow.profession_code)
                 flow.step = "profession"
                 return _profession_menu_text()
-            if upper not in ("YES", "Y", "CONFIRM", "OK"):
-                return None
+            if first not in CONFIRM_TOKENS:
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return (
+                    "To book this video appointment, reply YES (or CONFIRM). "
+                    "Reply BACK to choose another provider or CANCEL to exit."
+                )
             return _book_video_appointment(s, flow=flow, phone_e164=phone, channel=channel)
 
         if flow.step == "preferred_date":
@@ -1145,8 +1153,13 @@ def handle_appointment_message(
                 flow.step = "preferred_date"
                 flow.updated_at = now_iso()
                 return _clinic_date_menu_text()
-            if upper not in ("YES", "Y", "CONFIRM", "OK"):
-                return None
+            if first not in CONFIRM_TOKENS:
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return (
+                    "To submit this clinic appointment, reply YES (or CONFIRM). "
+                    "Reply BACK to change the date or CANCEL to exit."
+                )
             return _book_clinic_appointment(s, flow=flow, phone_e164=phone, channel=channel)
 
     return None
