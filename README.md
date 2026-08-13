@@ -9,7 +9,7 @@ Multi-channel patient education + helpdesk prototype:
 - Helpdesk: FAQ auto-suggestions; unanswered questions escalate to operators (stub)
 - Stubs for Telehealth escalation, Appointment booking, and RPM enrollment
 
-## Quickstart (PostgreSQL)
+## Quickstart (PostgreSQL);
 
 1) Bootstrap (creates venv, installs deps, creates `.env`):
 
