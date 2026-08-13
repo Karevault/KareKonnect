@@ -592,19 +592,11 @@ def handle_inbound_text_message(
     if first in symptom_check_keywords:
         return out(DEFAULT_SYMPTOM_CHECK_REPLY)
 
-    if _looks_like_plain_greeting(body) and not get_active_triage_session(from_phone):
-        return out(
-            _starter_menu_text(
-                help_keywords=help_keywords,
-                cfg=cfg,
-                channel=channel,
-                enrolled=bool(active_programs),
-            )
-        )
-
     # An active booking flow always outranks the generic symptom/FAQ handler:
     # never let a mid-booking reply fall through to a wrong-context response.
     # But if the user asks a question mid-flow, answer it then re-prompt.
+    # This must run before the idle/greeting checks below, since a mid-flow "hi" or a
+    # stale unrelated triage session must never interrupt an in-progress booking.
     if is_in_telehealth_flow(from_phone):
         body_en_flow = text_for_english_pipeline(body, user_lang)
         if _is_question_like(body_en_flow) and not _SYMPTOM_WORD_RE.search(body_en_flow):
@@ -633,8 +625,13 @@ def handle_inbound_text_message(
             + _RESTART_HINT
         )
 
-    # A delivered assessment ends the consultation. The next message brings the patient
-    # back to the welcome menu rather than silently opening another assessment.
+    # A delivered assessment, or a triage session that has gone idle past the inactivity
+    # timeout, ends the consultation. The next message — greeting or not — brings the
+    # patient back to the welcome menu rather than silently continuing a stale flow.
+    # This must run before the plain-greeting shortcut below: that shortcut used to call
+    # get_active_triage_session() directly, which also closes idle sessions as a side
+    # effect, so by the time this block ran the session was already closed and the
+    # "went quiet" heads-up never had a chance to fire for a message like "hi".
     if not _is_menu_command(first, upper) and not _is_helpdesk_message(body):
         end_reason = consume_completed_consultation(from_phone)
         if end_reason:
@@ -650,6 +647,16 @@ def handle_inbound_text_message(
                     + starter
                 )
             return out(starter)
+
+    if _looks_like_plain_greeting(body) and not get_active_triage_session(from_phone):
+        return out(
+            _starter_menu_text(
+                help_keywords=help_keywords,
+                cfg=cfg,
+                channel=channel,
+                enrolled=bool(active_programs),
+            )
+        )
 
     body_en = text_for_english_pipeline(body, user_lang)
     bits = ", ".join(help_keywords[:3]) if help_keywords else "INFO, MENU, COMMANDS"
