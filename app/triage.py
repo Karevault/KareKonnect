@@ -281,11 +281,11 @@ def start_triage_session(
 
 
 def triage_inactivity_timeout_minutes() -> int:
-    raw = (os.getenv("HC_TRIAGE_INACTIVITY_TIMEOUT_MINUTES") or "20").strip()
+    raw = (os.getenv("HC_TRIAGE_INACTIVITY_TIMEOUT_MINUTES") or "10").strip()
     try:
         return max(1, int(raw))
     except ValueError:
-        return 20
+        return 10
 
 
 def _inactivity_cutoff_iso() -> str:
@@ -352,16 +352,18 @@ def complete_triage_session(triage_session_id: Optional[str]) -> bool:
         return True
 
 
-def consume_completed_consultation(phone_e164: str) -> bool:
+def consume_completed_consultation(phone_e164: str) -> Optional[Literal["idle", "completed"]]:
     """
-    True once after a consultation finished or went idle, so the caller can show the welcome menu.
+    Returns "idle" or "completed" once after a consultation finished or went idle, so the
+    caller can show the welcome menu (and, for "idle", explain why). None otherwise.
 
     Flips the session to "closed" so the greeting is not repeated on later messages.
+    Still truthy/falsy-compatible with old bool-style call sites (`if consume_completed_consultation(...)`).
     """
     phone = normalize_phone_e164(phone_e164)
     now = now_iso()
     cutoff = _inactivity_cutoff_iso()
-    consumed = False
+    reason: Optional[Literal["idle", "completed"]] = None
     with session_scope() as s:
         # created_at only has second precision, so match on status instead of ordering:
         # at most one consultation is awaiting acknowledgement at any time.
@@ -381,12 +383,12 @@ def consume_completed_consultation(phone_e164: str) -> bool:
                 row.status = "closed"
                 row.closed_at = now
                 row.updated_at = now
-                consumed = True
+                reason = "idle"
             elif row.status == "completed":
                 row.status = "closed"
                 row.updated_at = now
-                consumed = True
-    return consumed
+                reason = reason or "completed"
+    return reason
 
 
 def cancel_active_triage_session(phone_e164: str) -> bool:

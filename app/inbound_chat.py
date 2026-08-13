@@ -135,9 +135,12 @@ def _wa_italic(text: str) -> str:
     return "\n".join(out_lines)
 
 
+_RESTART_HINT = "Send RESTART or START OVER anytime to begin again."
+
+
 def _tail_menu_hint(help_keywords: list[str]) -> str:
     bits = ", ".join(help_keywords[:4]) if help_keywords else "INFO, MENU, COMMANDS"
-    return f" Send {bits} for the full command list."
+    return f" Send {bits} for the full command list. {_RESTART_HINT}"
 
 
 def _language_menu_text(lang_cmd: str) -> str:
@@ -281,7 +284,7 @@ def _starter_menu_text(
             f"2. Full menu — send {bits}.",
             f"3. Book care — send {cfg.appoint_keyword.upper().strip()} or {cfg.telehealth_keyword.upper().strip()}.",
             f"4. Language — send {lang_cmd}.",
-            "5. Reset — send RESET.",
+            "5. Reset — send RESET, RESTART, or START OVER.",
         ]
     )
     if channel == "whatsapp":
@@ -309,7 +312,7 @@ def _symptom_reply_cmd_tail(
     bits = ", ".join(help_keywords[:3]) if help_keywords else "INFO, MENU, COMMANDS"
     cmds = (
         f"Commands: {bits} — {cfg.lang_command_keyword} EN, {cfg.appoint_keyword} …, "
-        f"{cfg.telehealth_keyword}, {cfg.escalate_keyword} ROUTINE …, {cfg.rpm_keyword} …"
+        f"{cfg.telehealth_keyword}, {cfg.escalate_keyword} ROUTINE …, {cfg.rpm_keyword} …, RESTART / START OVER"
     )
     if should_show_helpdesk_hint(phone_e164=from_phone):
         record_helpdesk_hint_shown(phone_e164=from_phone, channel=channel)
@@ -612,7 +615,8 @@ def handle_inbound_text_message(
                     + "\n\nYou are still in a telehealth booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
                 )
         return out(
-            "You are in a telehealth booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
+            "You are in a telehealth booking. Reply with the number shown, YES to confirm, BACK, or CANCEL. "
+            + _RESTART_HINT
         )
 
     if is_in_appointment_flow(from_phone):
@@ -625,25 +629,35 @@ def handle_inbound_text_message(
                     + "\n\nYou are still in an appointment booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
                 )
         return out(
-            "You are in appointment booking. Reply with the number shown, YES to confirm, BACK, or CANCEL."
+            "You are in appointment booking. Reply with the number shown, YES to confirm, BACK, or CANCEL. "
+            + _RESTART_HINT
         )
 
     # A delivered assessment ends the consultation. The next message brings the patient
     # back to the welcome menu rather than silently opening another assessment.
     if not _is_menu_command(first, upper) and not _is_helpdesk_message(body):
-        if consume_completed_consultation(from_phone):
-            return out(
-                _starter_menu_text(
-                    help_keywords=help_keywords,
-                    cfg=cfg,
-                    channel=channel,
-                    enrolled=bool(active_programs),
-                )
+        end_reason = consume_completed_consultation(from_phone)
+        if end_reason:
+            starter = _starter_menu_text(
+                help_keywords=help_keywords,
+                cfg=cfg,
+                channel=channel,
+                enrolled=bool(active_programs),
             )
+            if end_reason == "idle":
+                starter = (
+                    "Your last conversation went quiet, so we reset it back to the main menu.\n\n"
+                    + starter
+                )
+            return out(starter)
 
     body_en = text_for_english_pipeline(body, user_lang)
     bits = ", ".join(help_keywords[:3]) if help_keywords else "INFO, MENU, COMMANDS"
-    disc = "\n\n(Information only—not a diagnosis. Emergencies: go to the nearest facility.)"
+    disc = (
+        "\n\n(Information only—not a diagnosis. Emergencies: go to the nearest facility. "
+        + _RESTART_HINT
+        + ")"
+    )
 
     direct_info = _informational_health_reply(body_en, help_keywords=help_keywords)
     if direct_info:
@@ -780,22 +794,26 @@ def handle_inbound_text_message(
                 "clinical assessment failed phone=%s", from_phone
             )
 
-    # Reply layout: Dr. KareVault's response always comes first (bold on WhatsApp),
-    # then the disclaimer, then the command list in italics — clearly separated at the end.
+    # Reply layout: Dr. KareVault's response always comes first, marked with the stethoscope
+    # icon and bolded on WhatsApp, then a plain divider, then the disclaimer/triage/command
+    # "meta" text in italics on WhatsApp — so the clinical answer never blends into the noise.
     tail_cmds = cmd_tail or f"Send {bits} for the full command list."
     if channel == "whatsapp":
         tail_cmds = _wa_italic(tail_cmds)
+    divider = "\n\n— — —\n\n" if channel == "whatsapp" else "\n\n----------\n\n"
 
-    def _compose(main: str) -> str:
-        pieces = [main.strip(), disc.strip()]
+    def _compose(main: str, *, mark_karevault: bool = False) -> str:
+        meta_pieces = [disc.strip()]
         if triage_block.strip():
-            pieces.append(triage_block.strip())
-        pieces.append(tail_cmds)
-        return "\n\n".join(p for p in pieces if p)
+            meta_pieces.append(triage_block.strip())
+        meta_pieces.append(tail_cmds)
+        meta = "\n\n".join(p for p in meta_pieces if p)
+        head = f"🩺 {main.strip()}" if mark_karevault else main.strip()
+        return f"{head}{divider}{meta}" if meta else head
 
     if kv_t:
         main = _wa_bold(kv_t) if channel == "whatsapp" else kv_t
-        return out(_compose(main))
+        return out(_compose(main, mark_karevault=True))
     if suggested:
         return out(_compose(suggested))
     if triage_block.strip():
