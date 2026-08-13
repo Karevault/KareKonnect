@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
 import threading
 import uuid
 from datetime import date
@@ -992,7 +993,14 @@ def api_ehr_patient_context(req: EhrPatientContextRequest):
 
 @app.get("/healthz")
 def healthz():
-    return {"ok": True}
+    # Railway auto-injects these at build/deploy time; surfacing them lets anyone
+    # confirm exactly which commit is actually live without guessing from bot replies.
+    return {
+        "ok": True,
+        "git_commit": os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GIT_COMMIT_SHA") or None,
+        "git_branch": os.getenv("RAILWAY_GIT_BRANCH") or None,
+        "deployment_id": os.getenv("RAILWAY_DEPLOYMENT_ID") or None,
+    }
 
 
 @app.get("/healthz/clinical")
