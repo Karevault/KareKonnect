@@ -770,6 +770,7 @@ def handle_inbound_text_message(
         question_english=body_en,
         programs=program_context,
         new_consultation=new_consultation,
+        triage_session_id=triage_id,
     )
     kv_t = _truncate_reply(kv, _KAREVAULT_REPLY_MAX_LEN)
 

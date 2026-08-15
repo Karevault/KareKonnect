@@ -15,11 +15,24 @@ import logging
 import os
 import threading
 import time
+import uuid
 from typing import Optional
 
 import requests
 
 log = logging.getLogger(__name__)
+
+# Namespace for deriving a stable per-consultation KareVault session id from our own
+# triage_session_id, so the same consultation always maps to the same external session
+# without needing a new database column.
+_SESSION_ID_NAMESPACE = uuid.UUID("2f6a2b0e-6b8d-4d3a-9f0a-2a6a8c4d5e6f")
+
+
+def karevault_session_id(triage_session_id: Optional[str]) -> Optional[str]:
+    """Deterministic UUID for a given triage_session_id, or None if there isn't one."""
+    if not triage_session_id:
+        return None
+    return str(uuid.uuid5(_SESSION_ID_NAMESPACE, triage_session_id))
 
 _lock = threading.Lock()
 _partner_access_token: Optional[str] = None
@@ -135,10 +148,16 @@ def _get_partner_access_token() -> Optional[str]:
 
 
 def fetch_symptom_checker_reply(
-    *, question: str, programs: list[str], new_consultation: bool = False
+    *, question: str, programs: list[str], new_consultation: bool = False, session_id: Optional[str] = None
 ) -> Optional[str]:
     """
     Returns plain-text AI reply for the patient, or None if disabled / error.
+
+    `session_id` scopes KareVault's own server-side conversation memory to this one
+    consultation. Without it, every call from this app shares a single conversation on
+    KareVault's side (there is no other per-user identifier in the request), so unrelated
+    patients' symptoms and diagnoses bleed into each other. Callers should pass a stable
+    id for the lifetime of one triage session and a new one for each new consultation.
     """
     if not karevault_enabled():
         return None
@@ -150,17 +169,23 @@ def fetch_symptom_checker_reply(
             if not token:
                 return None
             url = f"{base}/api/external/v1/chat/"
+            body: dict[str, str] = {"message": message}
+            if session_id:
+                body["session_id"] = session_id
             r = requests.post(
                 url,
-                json={"message": message},
+                json=body,
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
                 timeout=30,
             )
         elif _use_public_chat():
             url = f"{base}/api/ai/chat/"
+            body = {"message": message}
+            if session_id:
+                body["session_id"] = session_id
             r = requests.post(
                 url,
-                json={"message": message},
+                json=body,
                 headers={"Content-Type": "application/json"},
                 timeout=30,
             )

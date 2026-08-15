@@ -12,7 +12,7 @@ from sqlalchemy import and_, case, func, select, update
 from sqlalchemy.orm import Session
 
 from app.africastalking import normalize_at_phone_number
-from app.karevault_client import fetch_symptom_checker_reply
+from app.karevault_client import fetch_symptom_checker_reply, karevault_session_id
 from app.database import session_scope
 from app.integration_config import get_effective_integration
 from app.messaging import Channel as MessagingChannel
@@ -795,6 +795,7 @@ def handle_symptom_question(
     question_english: Optional[str] = None,
     programs: Optional[list[str]] = None,
     new_consultation: bool = False,
+    triage_session_id: Optional[str] = None,
 ) -> Tuple[Optional[str], Optional[str]]:
     """FAQ match + KareVault symptom checker. Does not open a helpdesk ticket."""
     q_en = (question_english or "").strip() or question
@@ -802,7 +803,10 @@ def handle_symptom_question(
     suggested = None if _is_answer_like(q_en) else best_faq_answer(q_en, faqs)
     program_context = programs if programs is not None else active_program_codes_for_phone_e164(from_phone)
     kv = fetch_symptom_checker_reply(
-        question=q_en, programs=program_context, new_consultation=new_consultation
+        question=q_en,
+        programs=program_context,
+        new_consultation=new_consultation,
+        session_id=karevault_session_id(triage_session_id),
     )
     return suggested, kv
 
