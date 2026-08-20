@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal, Optional
 
@@ -359,6 +360,30 @@ def _notify_helpdesk_appointment(appointment_id: str, *, event: str = "booked") 
         _log.warning("helpdesk appointment notify failed: %s", res.error)
 
 
+def _run_appointment_side_effects(appointment_id: str, *, event: str) -> None:
+    try:
+        sync_appointment_to_ehr(appointment_id)
+    except Exception:
+        _log.exception("EHR sync failed for appointment %s", appointment_id)
+    try:
+        _notify_helpdesk_appointment(appointment_id, event=event)
+    except Exception:
+        _log.exception("helpdesk appointment notify failed for %s", appointment_id)
+
+
+def _dispatch_appointment_side_effects(appointment_id: str, *, event: str) -> None:
+    """EHR sync and the helpdesk alert are not needed to answer the patient, and each is a
+    blocking HTTP/WhatsApp call. Run them off-thread so a slow one can never eat into the
+    ~28s inbound-routing budget and cause the patient to see the generic "could not match
+    that" timeout fallback instead of their own booking confirmation."""
+    threading.Thread(
+        target=_run_appointment_side_effects,
+        args=(appointment_id,),
+        kwargs={"event": event},
+        daemon=True,
+    ).start()
+
+
 def _book_clinic_appointment(
     s: Session,
     *,
@@ -396,8 +421,7 @@ def _book_clinic_appointment(
     _reset_flow(flow)
     s.flush()
 
-    sync_appointment_to_ehr(appt_id)
-    _notify_helpdesk_appointment(appt_id, event="requested")
+    _dispatch_appointment_side_effects(appt_id, event="requested")
     ref = appt_id.replace("apt_", "APT-")[:16].upper()
     return (
         f"Clinic appointment requested (ref {ref}) for {preferred}. "
@@ -472,8 +496,7 @@ def _book_video_appointment(
     _reset_flow(flow)
     s.flush()
 
-    sync_appointment_to_ehr(appt_id)
-    _notify_helpdesk_appointment(appt_id, event="booked")
+    _dispatch_appointment_side_effects(appt_id, event="booked")
     return finalize_new_booking(session_id, db=s)
 
 

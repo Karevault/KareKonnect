@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from typing import Any, Literal, Optional
 
 import requests
@@ -919,6 +920,60 @@ def on_payment_confirmed(session_id: str, *, reference: Optional[str] = None) ->
     return ok
 
 
+def _run_booking_notifications(
+    *,
+    session_id: str,
+    provider_id: str,
+    patient_phone_e164: str,
+    channel: str,
+    fee_ngn: int,
+    billing_status: str,
+) -> None:
+    try:
+        notify_provider_new_booking(session_id, payment_received=False)
+    except Exception:
+        _log.exception("telehealth booking notify: provider notify failed for %s", session_id)
+    try:
+        _notify_operator_telehealth_event(
+            event="telehealth.session.booked",
+            session_id=session_id,
+            provider_id=provider_id,
+            patient_phone_e164=patient_phone_e164,
+            channel=channel,
+            fee_ngn=fee_ngn,
+            billing_status=billing_status,
+        )
+    except Exception:
+        _log.exception("telehealth booking notify: operator webhook failed for %s", session_id)
+    try:
+        notify_helpdesk_telehealth_booking(session_id, event="booked")
+    except Exception:
+        _log.exception("telehealth booking notify: helpdesk notify failed for %s", session_id)
+
+
+def _dispatch_booking_notifications(
+    *,
+    session_id: str,
+    provider_id: str,
+    patient_phone_e164: str,
+    channel: str,
+    fee_ngn: int,
+    billing_status: str,
+) -> None:
+    threading.Thread(
+        target=_run_booking_notifications,
+        kwargs={
+            "session_id": session_id,
+            "provider_id": provider_id,
+            "patient_phone_e164": patient_phone_e164,
+            "channel": channel,
+            "fee_ngn": fee_ngn,
+            "billing_status": billing_status,
+        },
+        daemon=True,
+    ).start()
+
+
 def finalize_new_booking(session_id: str, *, db: Optional[Session] = None) -> str:
     """Paystack link, waived flow, or immediate instructions after session row is created."""
     if db is not None:
@@ -952,9 +1007,12 @@ def _finalize_new_booking_impl(s: Session, session_id: str) -> str:
         if user:
             patient_name = user.full_name
 
-    notify_provider_new_booking(session_id, payment_received=False)
-    _notify_operator_telehealth_event(
-        event="telehealth.session.booked",
+    # Provider/operator/helpdesk alerts are not needed to answer the patient, and each is a
+    # blocking WhatsApp/SMS/webhook call (with its own 15-30s timeout). Run them off-thread so
+    # a slow one can never eat into the ~28s inbound-routing budget and cause the patient to
+    # see the generic "could not match that" timeout fallback instead of their own booking
+    # confirmation/payment instructions.
+    _dispatch_booking_notifications(
         session_id=session_id,
         provider_id=provider_id,
         patient_phone_e164=phone,
@@ -962,7 +1020,6 @@ def _finalize_new_booking_impl(s: Session, session_id: str) -> str:
         fee_ngn=fee,
         billing_status="pending",
     )
-    notify_helpdesk_telehealth_booking(session_id, event="booked")
 
     if fee <= 0:
         session.status = "confirmed"
