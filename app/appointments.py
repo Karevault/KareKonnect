@@ -30,13 +30,23 @@ from app.services import active_program_codes_for_phone_e164
 from app.telehealth import (
     CONFIRM_TOKENS,
     ROUTER_ESCAPE_COMMANDS,
+    _advance_past_patient_info,
     _available_providers_stmt,
     _busy_provider_ids,
+    _doctor_menu_text,
+    _get_or_create_user_row,
+    _normalize_gender,
     _provider_rating_summary,
+    _slot_date_menu_text,
+    _slot_time_menu_text,
+    _specialty_menu_text,
+    _validate_dob,
+    _validate_email,
     finalize_new_booking,
     format_fee,
     format_provider_name,
     list_professions_with_counts,
+    list_specialties_with_counts,
     new_booking_session_status,
     profession_label,
     provider_availability_label,
@@ -82,6 +92,10 @@ def _get_flow(s: Session, phone_e164: str, channel: str) -> AppointmentPatientFl
         reason=None,
         profession_code=None,
         selected_provider_id=None,
+        selected_specialty=None,
+        selected_doctor_id=None,
+        selected_slot_date=None,
+        selected_slot_time=None,
         preferred_date=None,
         pending_appointment_id=None,
         updated_at=now_iso(),
@@ -97,6 +111,10 @@ def _reset_flow(flow: AppointmentPatientFlow) -> None:
     flow.reason = None
     flow.profession_code = None
     flow.selected_provider_id = None
+    flow.selected_specialty = None
+    flow.selected_doctor_id = None
+    flow.selected_slot_date = None
+    flow.selected_slot_time = None
     flow.preferred_date = None
     flow.pending_appointment_id = None
     flow.updated_at = now_iso()
@@ -145,6 +163,23 @@ def _visit_type_menu(*, reason_hint: Optional[str]) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def _video_entry_step_and_menu() -> tuple[str, Optional[str]]:
+    """
+    Picks "specialty" (live KareVault Telehealth API) or "profession" (local fallback) as
+    the entry step for video booking, plus its menu text. Menu text of None means there's
+    nothing to show at all, so the caller should offer a clinic visit instead.
+    """
+    from app.karevault_telehealth_client import telehealth_api_enabled
+
+    if telehealth_api_enabled():
+        if not list_specialties_with_counts():
+            return "specialty", None
+        return "specialty", _specialty_menu_text()
+    if not list_professions_with_counts():
+        return "profession", None
+    return "profession", _profession_menu_text()
 
 
 def _profession_menu_text() -> str:
@@ -442,6 +477,17 @@ def _book_video_appointment(
         _reset_flow(flow)
         return "That clinician is no longer available. Send APPOINT to try again."
     if provider_availability_label(s, provider.id) != "free":
+        if flow.selected_slot_time:
+            from app.telehealth import _doctor_menu_text
+
+            flow.step = "doctor"
+            flow.selected_provider_id = None
+            flow.selected_doctor_id = None
+            flow.selected_slot_date = None
+            flow.selected_slot_time = None
+            flow.updated_at = now_iso()
+            text_, _doctors = _doctor_menu_text(flow.selected_specialty or "")
+            return f"{provider.full_name} is no longer free. {text_}"
         flow.step = "provider"
         flow.selected_provider_id = None
         flow.updated_at = now_iso()
@@ -485,6 +531,8 @@ def _book_video_appointment(
             fee_ngn=provider.fee_ngn,
             currency=provider.currency,
             billing_status="pending",
+            appointment_date=flow.selected_slot_date,
+            appointment_time=flow.selected_slot_time,
             call_mode="whatsapp_video" if channel == "whatsapp" else "phone",
             mask_patient_number=provider.mask_patient_number,
             created_at=now,
@@ -518,6 +566,10 @@ def start_appointment_flow(
         flow.visit_type = None
         flow.profession_code = None
         flow.selected_provider_id = None
+        flow.selected_specialty = None
+        flow.selected_doctor_id = None
+        flow.selected_slot_date = None
+        flow.selected_slot_time = None
         flow.preferred_date = None
         flow.updated_at = now_iso()
         if flow.user_id:
@@ -1006,7 +1058,8 @@ def handle_appointment_message(
 
         if flow.step == "visit_type":
             if text == "1" or first in ("VIDEO", "TELEHEALTH", "TELE"):
-                if not list_professions_with_counts():
+                video_step, video_menu = _video_entry_step_and_menu()
+                if video_menu is None:
                     flow.visit_type = "in_person"
                     flow.step = "preferred_date"
                     flow.updated_at = now_iso()
@@ -1019,9 +1072,9 @@ def handle_appointment_message(
                     flow.step = "reason"
                     flow.updated_at = now_iso()
                     return "Briefly describe the reason for your visit (one short message)."
-                flow.step = "profession"
+                flow.step = video_step
                 flow.updated_at = now_iso()
-                return _profession_menu_text()
+                return video_menu
             if text == "2" or first in ("CLINIC", "VISIT", "INPERSON"):
                 flow.visit_type = "in_person"
                 if not (flow.reason or "").strip():
@@ -1039,13 +1092,129 @@ def handle_appointment_message(
             flow.reason = text[:500]
             flow.updated_at = now_iso()
             if flow.visit_type == "telehealth":
-                flow.step = "profession"
-                return _profession_menu_text()
+                video_step, video_menu = _video_entry_step_and_menu()
+                flow.step = video_step
+                return video_menu or _profession_menu_text()
             if flow.visit_type == "in_person":
                 flow.step = "preferred_date"
                 return _clinic_date_menu_text()
             flow.step = "visit_type"
             return _visit_type_menu(reason_hint=flow.reason)
+
+        # --- Live KareVault Telehealth API path: specialty -> doctor -> slot_date ->
+        # slot_time -> [patient_email/gender/dob] -> confirm. Mirrors app.telehealth's
+        # handle_telehealth_message step machine; shared helpers imported from there.
+        if flow.step == "specialty":
+            if upper in ("BACK", "0"):
+                flow.step = "visit_type"
+                flow.updated_at = now_iso()
+                return _visit_type_menu(reason_hint=flow.reason)
+            if not text.isdigit():
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return "Reply with the number of a specialty from the list, BACK, or CANCEL to exit."
+            items = list_specialties_with_counts()
+            idx = int(text)
+            if idx < 1 or idx > len(items):
+                return f"Reply 1–{len(items)} to choose a specialty, or CANCEL to exit."
+            specialty = items[idx - 1]["label"]
+            flow.step = "doctor"
+            flow.selected_specialty = specialty
+            flow.updated_at = now_iso()
+            text_, _doctors = _doctor_menu_text(specialty)
+            return text_
+
+        if flow.step == "doctor":
+            if upper in ("BACK", "0"):
+                flow.step = "specialty"
+                flow.selected_specialty = None
+                flow.selected_doctor_id = None
+                flow.updated_at = now_iso()
+                return _specialty_menu_text()
+            if not text.isdigit():
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return "Reply with the number of a doctor from the list, BACK, or CANCEL to exit."
+            _menu_text, doctors = _doctor_menu_text(flow.selected_specialty or "")
+            idx = int(text)
+            if idx < 1 or idx > len(doctors):
+                return f"Reply 1–{len(doctors)} to choose a doctor, BACK, or CANCEL."
+            doctor = doctors[idx - 1]
+            flow.step = "slot_date"
+            flow.selected_doctor_id = str(doctor.id)
+            flow.updated_at = now_iso()
+            text_, _dates = _slot_date_menu_text(doctor.id)
+            return text_
+
+        if flow.step == "slot_date":
+            if upper in ("BACK", "0"):
+                flow.step = "doctor"
+                flow.selected_doctor_id = None
+                flow.selected_slot_date = None
+                flow.updated_at = now_iso()
+                text_, _doctors = _doctor_menu_text(flow.selected_specialty or "")
+                return text_
+            if not text.isdigit():
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return "Reply with the number of a date from the list, BACK, or CANCEL to exit."
+            _menu_text, dates = _slot_date_menu_text(int(flow.selected_doctor_id))
+            idx = int(text)
+            if idx < 1 or idx > len(dates):
+                return f"Reply 1–{len(dates)} to choose a date, BACK, or CANCEL."
+            flow.selected_slot_date = dates[idx - 1]
+            flow.step = "slot_time"
+            flow.updated_at = now_iso()
+            text_, _slots = _slot_time_menu_text(int(flow.selected_doctor_id), flow.selected_slot_date)
+            return text_
+
+        if flow.step == "slot_time":
+            if upper in ("BACK", "0"):
+                flow.step = "slot_date"
+                flow.selected_slot_date = None
+                flow.selected_slot_time = None
+                flow.updated_at = now_iso()
+                text_, _dates = _slot_date_menu_text(int(flow.selected_doctor_id))
+                return text_
+            if not text.isdigit():
+                if first in ROUTER_ESCAPE_COMMANDS:
+                    return None
+                return "Reply with the number of a time from the list, BACK, or CANCEL to exit."
+            _menu_text, slots = _slot_time_menu_text(int(flow.selected_doctor_id), flow.selected_slot_date)
+            idx = int(text)
+            if idx < 1 or idx > len(slots):
+                return f"Reply 1–{len(slots)} to choose a time, BACK, or CANCEL."
+            slot = slots[idx - 1]
+            flow.selected_slot_time = slot.start
+            flow.updated_at = now_iso()
+            return _advance_past_patient_info(s, flow, phone)
+
+        if flow.step == "patient_email":
+            email = _validate_email(text)
+            if not email:
+                return "That doesn't look like a valid email. Please try again, e.g. name@example.com."
+            user = _get_or_create_user_row(s, phone, channel)
+            user.email = email
+            user.updated_at = now_iso()
+            return _advance_past_patient_info(s, flow, phone)
+
+        if flow.step == "patient_gender":
+            gender = _normalize_gender(text)
+            if not gender:
+                return "Please reply Male, Female, or Other."
+            user = _get_or_create_user_row(s, phone, channel)
+            user.gender = gender
+            user.updated_at = now_iso()
+            return _advance_past_patient_info(s, flow, phone)
+
+        if flow.step == "patient_dob":
+            dob = _validate_dob(text)
+            if not dob:
+                return "Please reply with your date of birth as YYYY-MM-DD, e.g. 1990-05-14."
+            user = _get_or_create_user_row(s, phone, channel)
+            user.dob = dob
+            user.updated_at = now_iso()
+            return _advance_past_patient_info(s, flow, phone)
 
         if flow.step == "profession":
             if upper in ("BACK", "0"):
@@ -1093,6 +1262,13 @@ def handle_appointment_message(
             return _confirm_text(s, provider, flow.reason or "Video consultation")
 
         if flow.step == "confirm":
+            if upper in ("BACK", "0") and flow.selected_slot_time:
+                flow.step = "slot_time"
+                flow.selected_provider_id = None
+                flow.selected_slot_time = None
+                flow.updated_at = now_iso()
+                text_, _slots = _slot_time_menu_text(int(flow.selected_doctor_id), flow.selected_slot_date)
+                return text_
             if upper in ("BACK", "0"):
                 flow.step = "provider"
                 flow.selected_provider_id = None

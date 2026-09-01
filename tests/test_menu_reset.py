@@ -15,6 +15,7 @@ class MenuAndResetRoutingTests(unittest.TestCase):
             telehealth_keyword="TELEHEALTH",
             rate_keyword="RATE",
             triage_keyword="TRIAGE",
+            reschedule_keyword="RESCHEDULE",
             auto_reply_enabled=True,
             unknown_fallback_text="fallback",
         )

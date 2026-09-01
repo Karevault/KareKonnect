@@ -59,6 +59,7 @@ from app.telehealth import (
     handle_telehealth_message,
     is_in_telehealth_flow,
     parse_rate_command,
+    start_reschedule_flow,
     start_telehealth_flow,
     submit_rating,
 )
@@ -410,6 +411,7 @@ def handle_inbound_text_message(
     telehealth_cmd = cfg.telehealth_keyword.upper().strip()
     rate_cmd = cfg.rate_keyword.upper().strip()
     triage_cmd = cfg.triage_keyword.upper().strip()
+    reschedule_cmd = cfg.reschedule_keyword.upper().strip()
     active_programs = active_program_codes_for_phone_e164(from_phone)
 
     # INFO / MENU / COMMANDS — always return the full help menu (escape hatch from any flow).
@@ -458,6 +460,9 @@ def handle_inbound_text_message(
 
     if first == telehealth_cmd or upper == telehealth_cmd:
         return out(start_telehealth_flow(phone_e164=from_phone))
+
+    if first == reschedule_cmd or upper == reschedule_cmd:
+        return out(start_reschedule_flow(phone_e164=from_phone, channel=channel))
 
     if first == rate_cmd or upper.startswith(f"{rate_cmd} "):
         score, comment = parse_rate_command(body, keyword=cfg.rate_keyword)

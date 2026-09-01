@@ -326,6 +326,94 @@ def _ensure_app_settings_triage_keyword_column() -> None:
         )
 
 
+def _ensure_app_settings_reschedule_keyword_column() -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS reschedule_keyword VARCHAR(32) "
+                "DEFAULT 'RESCHEDULE'"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE app_settings SET reschedule_keyword = 'RESCHEDULE' "
+                "WHERE id = 1 AND (reschedule_keyword IS NULL OR TRIM(reschedule_keyword) = '')"
+            )
+        )
+
+
+def _ensure_users_karevault_profile_columns() -> None:
+    """email/gender/dob, collected once for the KareVault telehealth appointment payload."""
+    log = logging.getLogger(__name__)
+    statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(16)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS dob VARCHAR(16)",
+    ]
+    with engine.begin() as conn:
+        for sql in statements:
+            try:
+                conn.execute(text(sql))
+            except Exception as exc:
+                log.warning("users karevault-profile migration: %s — %s", sql[:72], exc)
+
+
+def _ensure_telehealth_provider_external_id_column() -> None:
+    log = logging.getLogger(__name__)
+    with engine.begin() as conn:
+        try:
+            conn.execute(
+                text(
+                    "ALTER TABLE telehealth_providers ADD COLUMN IF NOT EXISTS "
+                    "external_doctor_id VARCHAR(64)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_telehealth_providers_external_doctor_id "
+                    "ON telehealth_providers (external_doctor_id) WHERE external_doctor_id IS NOT NULL"
+                )
+            )
+        except Exception as exc:
+            log.warning("telehealth_providers external_doctor_id migration: %s", exc)
+
+
+def _ensure_telehealth_session_karevault_columns() -> None:
+    log = logging.getLogger(__name__)
+    statements = [
+        "ALTER TABLE telehealth_sessions ADD COLUMN IF NOT EXISTS appointment_date VARCHAR(16)",
+        "ALTER TABLE telehealth_sessions ADD COLUMN IF NOT EXISTS appointment_time VARCHAR(8)",
+        "ALTER TABLE telehealth_sessions ADD COLUMN IF NOT EXISTS external_appointment_id VARCHAR(64)",
+        "ALTER TABLE telehealth_sessions ADD COLUMN IF NOT EXISTS external_call_url TEXT",
+    ]
+    with engine.begin() as conn:
+        for sql in statements:
+            try:
+                conn.execute(text(sql))
+            except Exception as exc:
+                log.warning("telehealth_sessions karevault migration: %s — %s", sql[:72], exc)
+
+
+def _ensure_patient_flow_karevault_columns() -> None:
+    log = logging.getLogger(__name__)
+    statements = [
+        "ALTER TABLE telehealth_patient_flows ADD COLUMN IF NOT EXISTS selected_specialty VARCHAR(128)",
+        "ALTER TABLE telehealth_patient_flows ADD COLUMN IF NOT EXISTS selected_doctor_id VARCHAR(64)",
+        "ALTER TABLE telehealth_patient_flows ADD COLUMN IF NOT EXISTS selected_slot_date VARCHAR(16)",
+        "ALTER TABLE telehealth_patient_flows ADD COLUMN IF NOT EXISTS selected_slot_time VARCHAR(8)",
+        "ALTER TABLE appointment_patient_flows ADD COLUMN IF NOT EXISTS selected_specialty VARCHAR(128)",
+        "ALTER TABLE appointment_patient_flows ADD COLUMN IF NOT EXISTS selected_doctor_id VARCHAR(64)",
+        "ALTER TABLE appointment_patient_flows ADD COLUMN IF NOT EXISTS selected_slot_date VARCHAR(16)",
+        "ALTER TABLE appointment_patient_flows ADD COLUMN IF NOT EXISTS selected_slot_time VARCHAR(8)",
+    ]
+    with engine.begin() as conn:
+        for sql in statements:
+            try:
+                conn.execute(text(sql))
+            except Exception as exc:
+                log.warning("patient flow karevault migration: %s — %s", sql[:72], exc)
+
+
 def _ensure_app_settings_telehealth_columns() -> None:
     with engine.begin() as conn:
         conn.execute(
@@ -365,10 +453,16 @@ def _migrate_broadcast_template_language() -> None:
 
 
 def _seed_telehealth_providers_if_empty() -> None:
-    """Starter clinicians so TELEHEALTH works on fresh deploys (edit in Admin → Providers)."""
+    """Starter clinicians for local dev only. Skipped once the KareVault Telehealth API is
+    configured, since that is the live source of truth in production (see
+    app.telehealth's sync-on-select) — otherwise these 3 demo rows would keep showing up
+    to real patients alongside/instead of the real doctor roster."""
+    from app.karevault_telehealth_client import telehealth_api_enabled
     from app.models import TelehealthProvider
     from app.util import new_id, now_iso
 
+    if telehealth_api_enabled():
+        return
     now = now_iso()
     with session_scope() as s:
         from sqlalchemy import func, select
@@ -490,8 +584,13 @@ def init_db() -> None:
     _ensure_outbox_broadcast_run_column()
     _ensure_app_settings_telehealth_columns()
     _ensure_app_settings_triage_keyword_column()
+    _ensure_app_settings_reschedule_keyword_column()
     _ensure_integration_paystack_calling_columns()
     _ensure_telehealth_session_extra_columns()
+    _ensure_telehealth_session_karevault_columns()
+    _ensure_telehealth_provider_external_id_column()
+    _ensure_users_karevault_profile_columns()
+    _ensure_patient_flow_karevault_columns()
     _ensure_appointments_module_columns()
     _ensure_triage_intake_columns()
     _ensure_clinical_action_tables()

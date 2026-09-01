@@ -48,6 +48,7 @@ class AppSettings(Base):
     telehealth_keyword: Mapped[str] = mapped_column(String(32), nullable=False, default="TELEHEALTH")
     rate_keyword: Mapped[str] = mapped_column(String(32), nullable=False, default="RATE")
     triage_keyword: Mapped[str] = mapped_column(String(32), nullable=False, default="TRIAGE")
+    reschedule_keyword: Mapped[str] = mapped_column(String(32), nullable=False, default="RESCHEDULE")
 
     auto_reply_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     default_help_menu_text: Mapped[str] = mapped_column(
@@ -133,6 +134,10 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     phone_e164: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Collected once, on first telehealth booking, for the KareVault appointment payload.
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    gender: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)  # male|female|other
+    dob: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)  # ISO date YYYY-MM-DD
     channel: Mapped[str] = mapped_column(String(16), nullable=False)  # sms|whatsapp|ussd|web
     language: Mapped[str] = mapped_column(String(8), nullable=False)  # en|pcm|ha|ig|yo
     # Opt-in for automated programme education tips; delivery is WhatsApp-only (see enqueue_due_messages).
@@ -313,10 +318,16 @@ class AppointmentPatientFlow(Base):
     step: Mapped[str] = mapped_column(
         String(16), nullable=False, default="idle"
     )  # idle|visit_type|reason|profession|provider|confirm|preferred_date|clinic_confirm
+    # |specialty|doctor|slot_date|slot_time|patient_email|patient_gender|patient_dob (live-API video path)
     visit_type: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)  # telehealth|in_person
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     profession_code: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     selected_provider_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # Live-API video-booking path (see app.telehealth's specialty/doctor/slot steps).
+    selected_specialty: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    selected_doctor_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # KareVault doctor id
+    selected_slot_date: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    selected_slot_time: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     preferred_date: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     pending_appointment_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     updated_at: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -399,6 +410,9 @@ class TelehealthProvider(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     title: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # Dr., Nurse, etc.
     profession: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # Set only for rows synced from the KareVault Telehealth API (see app.telehealth's
+    # sync_local_provider_from_remote_doctor); NULL for locally hand-entered/demo providers.
+    external_doctor_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True, unique=True)
     bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     license_number: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     contact_phone_e164: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
@@ -456,6 +470,13 @@ class TelehealthSession(Base):
     payment_instructions_sent_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     call_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     mask_patient_number: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # The patient's chosen slot, captured at booking time regardless of payment status, and
+    # the KareVault Telehealth API's own appointment id/video link once create_appointment
+    # has actually been called for this session (immediately for waived, on payment for paid).
+    appointment_date: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)  # YYYY-MM-DD
+    appointment_time: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)  # HH:MM
+    external_appointment_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    external_call_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     updated_at: Mapped[str] = mapped_column(String(32), nullable=False)
     completed_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
@@ -497,8 +518,14 @@ class TelehealthPatientFlow(Base):
         String(64), ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
     )
     step: Mapped[str] = mapped_column(String(16), nullable=False, default="idle")  # idle|profession|provider|confirm
+    # |specialty|doctor|slot_date|slot_time|patient_email|patient_gender|patient_dob (live-API path)
     profession_code: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     selected_provider_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # Live-API path (see app.telehealth's specialty/doctor/slot steps).
+    selected_specialty: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    selected_doctor_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # KareVault doctor id
+    selected_slot_date: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    selected_slot_time: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     pending_session_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     updated_at: Mapped[str] = mapped_column(String(32), nullable=False)
 

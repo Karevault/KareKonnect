@@ -756,6 +756,7 @@ class TelehealthProviderAdmin(HCModelView, model=TelehealthProvider):
         TelehealthProvider.profession,
         TelehealthProvider.fee_ngn,
         TelehealthProvider.status,
+        TelehealthProvider.external_doctor_id,
         TelehealthProvider.id,
         TelehealthProvider.avg_rating,
         TelehealthProvider.rating_count,
@@ -791,21 +792,25 @@ class TelehealthProviderAdmin(HCModelView, model=TelehealthProvider):
         TelehealthProvider.mask_patient_number,
     ]
     form_overrides = {
-        "profession": SelectField,
         "status": SelectField,
         "mask_patient_number": BooleanField,
     }
     form_args = {
-        "profession": {"choices": fc.TELEHEALTH_PROFESSION_CHOICES, "coerce": str},
+        # Not a strict SelectField: rows synced from the KareVault Telehealth API carry the
+        # vendor's own free-text specialty (e.g. "Cardiologist", "Dentist"), which doesn't fit
+        # the fixed local list — a SelectField would silently reset it to the first choice on
+        # save. Free text still works fine for locally hand-entered providers.
         "status": {"choices": fc.TELEHEALTH_PROVIDER_STATUS_CHOICES, "coerce": str, "default": "active"},
         "fee_ngn": {"validators": [validators.NumberRange(min=0)], "default": 0},
     }
     column_labels = {
         TelehealthProvider.fee_ngn: "Consultation fee (NGN)",
         TelehealthProvider.id: "Availability (live)",
+        TelehealthProvider.external_doctor_id: "KareVault doctor id (set only for synced rows)",
         TelehealthProvider.contact_phone_e164: "Provider WhatsApp / phone (E.164) — booking + payment alerts",
         TelehealthProvider.mask_patient_number: "Mask patient number in admin session views",
-        TelehealthProvider.status: "Listing status (only Active appears to patients)",
+        TelehealthProvider.status: "Listing status (only Active appears to patients). Rows added here "
+        "manually are only shown to patients when the KareVault Telehealth API is not configured.",
     }
     name = "Provider"
     name_plural = "Providers"
@@ -2103,6 +2108,7 @@ class AppSettingsAdmin(HCModelView, model=AppSettings):
         AppSettings.telehealth_keyword,
         AppSettings.rate_keyword,
         AppSettings.triage_keyword,
+        AppSettings.reschedule_keyword,
         AppSettings.auto_reply_enabled,
         AppSettings.whatsapp_voice_inbound_enabled,
         AppSettings.whatsapp_voice_outbound_enabled,
@@ -2157,6 +2163,7 @@ class AppSettingsAdmin(HCModelView, model=AppSettings):
             "telehealth_keyword",
             "rate_keyword",
             "triage_keyword",
+            "reschedule_keyword",
         ):
             if key in data and data[key] is not None:
                 v = _normalize_single_keyword(str(data[key]))
