@@ -67,12 +67,20 @@ install_jinja_datetime_filters(templates.env)
 _test_chat_lock = threading.Lock()
 _test_chat_sessions: dict[str, dict[str, object]] = {}
 
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 _admin_static_dir = Path(__file__).resolve().parent / "static" / "admin"
+_public_dir = Path(__file__).resolve().parent.parent / "public"
 app.mount(
     "/admin-hc",
     StaticFiles(directory=str(_admin_static_dir)),
     name="admin_hc_static",
 )
+app.mount("/public", StaticFiles(directory=str(_public_dir)), name="public_assets")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(_public_dir / "favicon.png", media_type="image/png")
 
 
 def _warn_if_no_admin_users() -> None:
