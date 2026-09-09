@@ -1,9 +1,7 @@
 """
 KareVault Symptom Checker API — https://symptoms-checker.karevault.com/api/docs/
 
-Uses either:
-- Partner flow: POST /api/external/v1/request-access/ then POST /api/external/v1/chat/ (Bearer access_token)
-- Public flow: POST /api/ai/chat/ (no auth; suitable for demos only)
+Uses the public symptom-checker flow: POST /api/ai/chat/ (no auth).
 
 Medical disease/symptom list endpoints require Token auth and may return an empty catalogue; chat is the
 primary integration for patient Q&A.
@@ -13,8 +11,6 @@ from __future__ import annotations
 
 import logging
 import os
-import threading
-import time
 import uuid
 from typing import Optional
 
@@ -33,10 +29,6 @@ def karevault_session_id(triage_session_id: Optional[str]) -> Optional[str]:
     if not triage_session_id:
         return None
     return str(uuid.uuid5(_SESSION_ID_NAMESPACE, triage_session_id))
-
-_lock = threading.Lock()
-_partner_access_token: Optional[str] = None
-_partner_token_expires_at: float = 0.0
 
 _PROGRAM_CONTEXT: dict[str, str] = {
     "maternal_child": "Context: maternal, pregnancy, newborn, or postpartum care.",
@@ -62,15 +54,6 @@ def _base_url() -> str:
 
 def _base() -> str:
     return _base_url().rstrip("/")
-
-
-def _use_partner() -> bool:
-    return bool((os.getenv("HC_KAREVAULT_PARTNER_EMAIL") or "").strip())
-
-
-def _use_public_chat() -> bool:
-    """Use unauthenticated /api/ai/chat/ when no partner email (demo / low-friction)."""
-    return not _use_partner()
 
 
 _ASSESSMENT_COMPLETE_MARKERS = (
@@ -112,41 +95,6 @@ def build_contextual_question(
     )
 
 
-def _get_partner_access_token() -> Optional[str]:
-    global _partner_access_token, _partner_token_expires_at
-    email = (os.getenv("HC_KAREVAULT_PARTNER_EMAIL") or "").strip()
-    name = (os.getenv("HC_KAREVAULT_PARTNER_NAME") or "Kareconnect").strip()
-    if not email:
-        return None
-    now = time.monotonic()
-    with _lock:
-        if _partner_access_token and now < _partner_token_expires_at - 60:
-            return _partner_access_token
-        url = f"{_base()}/api/external/v1/request-access/"
-        try:
-            r = requests.post(
-                url,
-                json={"email": email, "name": name},
-                headers={"Content-Type": "application/json"},
-                timeout=20,
-            )
-            if not (200 <= r.status_code < 300):
-                log.warning("KareVault request-access HTTP %s: %s", r.status_code, (r.text or "")[:400])
-                return None
-            data = r.json()
-            tok = (data.get("access_token") or "").strip()
-            if not tok:
-                log.warning("KareVault request-access: no access_token in body")
-                return None
-            exp = float(data.get("expires_in", 3500))
-            _partner_access_token = tok
-            _partner_token_expires_at = now + max(300.0, exp)
-            return _partner_access_token
-        except Exception as exc:
-            log.warning("KareVault request-access failed: %s", exc)
-            return None
-
-
 def fetch_symptom_checker_reply(
     *, question: str, programs: list[str], new_consultation: bool = False, session_id: Optional[str] = None
 ) -> Optional[str]:
@@ -164,39 +112,26 @@ def fetch_symptom_checker_reply(
     message = build_contextual_question(question, programs, new_consultation=new_consultation)
     base = _base()
     try:
-        if _use_partner():
-            token = _get_partner_access_token()
-            if not token:
-                return None
-            url = f"{base}/api/external/v1/chat/"
-            body: dict[str, str] = {"message": message}
-            if session_id:
-                body["session_id"] = session_id
-            r = requests.post(
-                url,
-                json=body,
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                timeout=30,
-            )
-        elif _use_public_chat():
-            url = f"{base}/api/ai/chat/"
-            body = {"message": message}
-            if session_id:
-                body["session_id"] = session_id
-            r = requests.post(
-                url,
-                json=body,
-                headers={"Content-Type": "application/json"},
-                timeout=30,
-            )
-        else:
-            return None
+        # The current Swagger contract exposes the public patient Q&A endpoint;
+        # the former external partner chat route is no longer registered.
+        url = f"{base}/api/ai/chat/"
+        body: dict[str, str] = {"message": message}
+        if session_id:
+            body["session_id"] = session_id
+        r = requests.post(
+            url,
+            json=body,
+            headers={"Content-Type": "application/json"},
+            timeout=30,
+        )
 
         if not (200 <= r.status_code < 300):
             log.warning("KareVault chat HTTP %s: %s", r.status_code, (r.text or "")[:400])
             return None
         data = r.json()
-        text = (data.get("ai_response") or data.get("diagnosis") or "").strip()
+        diagnosis = data.get("diagnosis")
+        diagnosis_text = diagnosis if isinstance(diagnosis, str) else ""
+        text = (data.get("message") or data.get("ai_response") or diagnosis_text or "").strip()
         return text or None
     except Exception as exc:
         log.warning("KareVault chat failed: %s", exc)
