@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import uuid
 from typing import Optional
 
@@ -22,6 +23,8 @@ log = logging.getLogger(__name__)
 # triage_session_id, so the same consultation always maps to the same external session
 # without needing a new database column.
 _SESSION_ID_NAMESPACE = uuid.UUID("2f6a2b0e-6b8d-4d3a-9f0a-2a6a8c4d5e6f")
+_remote_session_ids: dict[str, str] = {}
+_remote_session_lock = threading.Lock()
 
 
 def karevault_session_id(triage_session_id: Optional[str]) -> Optional[str]:
@@ -29,6 +32,21 @@ def karevault_session_id(triage_session_id: Optional[str]) -> Optional[str]:
     if not triage_session_id:
         return None
     return str(uuid.uuid5(_SESSION_ID_NAMESPACE, triage_session_id))
+
+
+def _remote_session_id(local_session_id: Optional[str], *, new_consultation: bool) -> Optional[str]:
+    if not local_session_id or new_consultation:
+        return None
+    with _remote_session_lock:
+        return _remote_session_ids.get(local_session_id)
+
+
+def _remember_remote_session_id(local_session_id: Optional[str], remote_session_id: object) -> None:
+    remote_id = str(remote_session_id or "").strip()
+    if not local_session_id or not remote_id:
+        return
+    with _remote_session_lock:
+        _remote_session_ids[local_session_id] = remote_id
 
 _PROGRAM_CONTEXT: dict[str, str] = {
     "maternal_child": "Context: maternal, pregnancy, newborn, or postpartum care.",
@@ -112,12 +130,11 @@ def fetch_symptom_checker_reply(
     message = build_contextual_question(question, programs, new_consultation=new_consultation)
     base = _base()
     try:
-        # The current Swagger contract exposes the public patient Q&A endpoint;
-        # the former external partner chat route is no longer registered.
         url = f"{base}/api/ai/chat/"
         body: dict[str, str] = {"message": message}
-        if session_id:
-            body["session_id"] = session_id
+        remote_session_id = _remote_session_id(session_id, new_consultation=new_consultation)
+        if remote_session_id:
+            body["session_id"] = remote_session_id
         r = requests.post(
             url,
             json=body,
@@ -129,6 +146,7 @@ def fetch_symptom_checker_reply(
             log.warning("KareVault chat HTTP %s: %s", r.status_code, (r.text or "")[:400])
             return None
         data = r.json()
+        _remember_remote_session_id(session_id, data.get("session_id"))
         diagnosis = data.get("diagnosis")
         diagnosis_text = diagnosis if isinstance(diagnosis, str) else ""
         text = (data.get("message") or data.get("ai_response") or diagnosis_text or "").strip()
