@@ -717,7 +717,6 @@ def _call_instructions(
     if channel == "whatsapp":
         lines = [f"Telehealth ready (ref {ref}). {billing_line}", ""]
         clinician = _provider_display_name(provider, override=provider_name)
-        contact = (provider_contact_phone or ((provider.contact_phone_e164 or "") if provider else "")).strip()
         if call_initiated:
             lines.append("We are connecting your WhatsApp video call now — please accept when prompted.")
         elif call_url:
@@ -728,29 +727,13 @@ def _call_instructions(
                     f"Join your video consultation here at your appointment time: {call_url}",
                 ]
             )
-        elif contact:
-            display, wa_link = _format_whatsapp_contact(contact)
-            lines.extend(
-                [
-                    f"Clinician: {clinician}",
-                    "",
-                    "Start your video consultation on your clinician's WhatsApp (not this Kareconnect line):",
-                    f"Phone: {display}",
-                ]
-            )
-            if wa_link:
-                lines.append(f"Open chat: {wa_link}")
-            lines.extend(
-                [
-                    "",
-                    f"Open that chat and start a video call with your clinician when ready. Mention ref {ref}.",
-                ]
-            )
         else:
             lines.extend(
                 [
                     f"Clinician: {clinician}",
-                    "We will send your clinician's WhatsApp number shortly, or a coordinator will reach out here.",
+                    "",
+                    "Your secure video meeting link is being prepared.",
+                    f"If it is not sent before your appointment time, contact helpdesk with ref {ref}.",
                 ]
             )
         if call_note:

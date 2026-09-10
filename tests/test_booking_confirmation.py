@@ -65,6 +65,21 @@ class AppointmentConfirmationTests(unittest.TestCase):
         self.assertNotIn("We will send your clinician's WhatsApp number", reply)
         self.assertNotIn("Open chat:", reply)
 
+    def test_whatsapp_ready_message_never_promises_clinician_contact(self) -> None:
+        reply = _call_instructions(
+            "ths_test",
+            channel="whatsapp",
+            billing_status="paid",
+            fee_ngn=15000,
+            provider_name="Chidinma Obi",
+            provider_contact_phone="+2348000000000",
+            appointment_when="2026-09-10 13:30",
+        )
+        self.assertIn("Your secure video meeting link is being prepared.", reply)
+        self.assertIn("contact helpdesk with ref TH-TEST", reply)
+        self.assertNotIn("WhatsApp number", reply)
+        self.assertNotIn("Open chat:", reply)
+
     def test_confirm_tokens_cover_qa_variants(self) -> None:
         for token in ("YES", "Y", "CONFIRM", "OK", "BOOK", "PROCEED"):
             self.assertIn(token, CONFIRM_TOKENS)
