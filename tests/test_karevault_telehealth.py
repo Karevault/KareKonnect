@@ -7,6 +7,7 @@ from app.karevault_telehealth_client import (
     _parse_fee,
     _extract_call_url,
     _extract_appointment_id,
+    _patient_call_url,
     invalidate_doctors_cache,
     list_doctors,
     telehealth_api_enabled,
@@ -52,6 +53,12 @@ class AppointmentResponseParsingTests(unittest.TestCase):
         self.assertEqual(
             _extract_call_url({"appointment_id": 456, "call_url": "https://x/call/456"}),
             "https://x/call/456",
+        )
+
+    def test_builds_documented_portal_url_when_api_omits_call_url(self):
+        self.assertEqual(
+            _patient_call_url(12345),
+            "https://telehealthportal.karevault.com/call/patient?id=12345",
         )
 
 

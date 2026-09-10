@@ -1136,6 +1136,13 @@ def deliver_post_payment_patient_message(session_id: str, *, notify_provider: bo
         prov_name = _provider_display_name(provider)
         prov_contact = (provider.contact_phone_e164 or "").strip()
         ext_call_url = session.external_call_url
+        if not ext_call_url and session.external_appointment_id:
+            from app.karevault_telehealth_client import _patient_call_url
+
+            try:
+                ext_call_url = _patient_call_url(int(session.external_appointment_id))
+            except (TypeError, ValueError):
+                ext_call_url = None
         appointment_when = (
             f"{session.appointment_date} {session.appointment_time}" if session.appointment_date else None
         )
@@ -1204,8 +1211,16 @@ def _create_remote_appointment_for_session(
     """
     from app.karevault_telehealth_client import create_appointment, telehealth_api_enabled
 
-    if not telehealth_api_enabled() or not provider.external_doctor_id:
-        return  # local/demo provider, or API not configured — nothing to sync
+    if not telehealth_api_enabled():
+        _log.warning("telehealth session %s: remote appointment skipped; telehealth API is not configured", session.id)
+        return
+    if not provider.external_doctor_id:
+        _log.warning(
+            "telehealth session %s: remote appointment skipped; provider %s has no external_doctor_id",
+            session.id,
+            provider.id,
+        )
+        return
     if session.external_appointment_id:
         return  # already created — idempotency guard against duplicate webhook/retry calls
     if not session.appointment_date or not session.appointment_time:

@@ -29,6 +29,14 @@ def _base_url() -> str:
     return (os.getenv("HC_TELEHEALTH_API_BASE_URL") or _DEFAULT_BASE).strip().rstrip("/")
 
 
+def _patient_call_url(appointment_id: Optional[int]) -> Optional[str]:
+    """Build the documented patient portal URL when the API omits call_url."""
+    if appointment_id is None:
+        return None
+    portal = (os.getenv("HC_TELEHEALTH_PATIENT_PORTAL_BASE_URL") or "https://telehealthportal.karevault.com").strip().rstrip("/")
+    return f"{portal}/call/patient?id={appointment_id}"
+
+
 def _token() -> Optional[str]:
     return (os.getenv("HC_TELEHEALTH_WHATSAPP_TOKEN") or "").strip() or None
 
@@ -244,7 +252,8 @@ def create_appointment(
             err = str(data.get("message") or data.get("detail") or f"HTTP {r.status_code}")
             log.warning("KareVault create_appointment failed: %s — %s", err, (r.text or "")[:400])
             return AppointmentResult(ok=False, error=err)
-        call_url = _extract_call_url(data)
+        appointment_id = _extract_appointment_id(data)
+        call_url = _extract_call_url(data) or _patient_call_url(appointment_id)
         if not call_url:
             log.warning(
                 "KareVault create_appointment succeeded without a meeting URL; response keys=%s",
@@ -252,7 +261,7 @@ def create_appointment(
             )
         return AppointmentResult(
             ok=True,
-            appointment_id=_extract_appointment_id(data),
+            appointment_id=appointment_id,
             status=data.get("status"),
             call_url=call_url,
         )
