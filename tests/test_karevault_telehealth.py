@@ -296,6 +296,31 @@ class PaymentSequencingTests(unittest.TestCase):
             self.assertEqual(session.external_appointment_id, "123")
             self.assertEqual(session.external_call_url, "https://x/call/123")
 
+    def test_payment_confirmed_sends_portal_link_in_patient_message(self):
+        session_id = self._make_synced_provider_and_session(fee_ngn=5000)
+        from app.karevault_telehealth_client import AppointmentResult
+
+        sent: list[str] = []
+        result = AppointmentResult(ok=True, appointment_id=12345, status="paid", call_url=None)
+        with patch("app.karevault_telehealth_client.create_appointment", return_value=result), patch(
+            "app.karevault_telehealth_client.telehealth_api_enabled", return_value=True
+        ), patch("app.telehealth._notify_operator_telehealth_event"), patch(
+            "app.telehealth.notify_helpdesk_telehealth_booking"
+        ), patch("app.telehealth.notify_provider_new_booking"), patch(
+            "app.telehealth._send_patient_telehealth_message",
+            side_effect=lambda **kwargs: sent.append(kwargs["body"]) or MagicMock(ok=True, via="whatsapp"),
+        ):
+            from app.telehealth import on_payment_confirmed
+
+            self.assertTrue(on_payment_confirmed(session_id, reference="ref123"))
+
+        self.assertEqual(len(sent), 1)
+        self.assertIn("https://telehealthportal.karevault.com/call/patient?id=12345", sent[0])
+        self.assertNotIn("We will send your clinician's WhatsApp number", sent[0])
+        with session_scope() as s:
+            session = s.get(TelehealthSession, session_id)
+            self.assertEqual(session.external_call_url, "https://telehealthportal.karevault.com/call/patient?id=12345")
+
     def test_waived_booking_calls_create_appointment_immediately(self):
         session_id = self._make_synced_provider_and_session(fee_ngn=0)
         from app.karevault_telehealth_client import AppointmentResult

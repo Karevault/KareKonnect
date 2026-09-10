@@ -1226,7 +1226,17 @@ def _create_remote_appointment_for_session(
     if not telehealth_api_enabled():
         _log.warning("telehealth session %s: remote appointment skipped; telehealth API is not configured", session.id)
         return
-    if not provider.external_doctor_id:
+    external_doctor_id = (provider.external_doctor_id or "").strip()
+    if not external_doctor_id and provider.id.startswith("thp_ext_"):
+        derived_id = provider.id.removeprefix("thp_ext_")
+        if derived_id.isdigit():
+            external_doctor_id = derived_id
+            _log.warning(
+                "telehealth session %s: recovered external doctor id %s from provider id",
+                session.id,
+                external_doctor_id,
+            )
+    if not external_doctor_id:
         _log.warning(
             "telehealth session %s: remote appointment skipped; provider %s has no external_doctor_id",
             session.id,
@@ -1247,15 +1257,17 @@ def _create_remote_appointment_for_session(
         email=(user.email if user else None) or "",
         gender=(user.gender if user else None) or "",
         dob=(user.dob if user else None) or "",
-        doctor_id=int(provider.external_doctor_id),
+        doctor_id=int(external_doctor_id),
         appointment_date=session.appointment_date,
         appointment_time=session.appointment_time,
         appointment_type="video",
         reason="Telehealth consultation via Kareconnect",
     )
     if result.ok:
+        from app.karevault_telehealth_client import _patient_call_url
+
         session.external_appointment_id = str(result.appointment_id) if result.appointment_id else None
-        session.external_call_url = result.call_url
+        session.external_call_url = result.call_url or _patient_call_url(result.appointment_id)
         session.updated_at = now_iso()
     else:
         session.billing_notes = f"KareVault create_appointment failed: {result.error}"[:2000]
