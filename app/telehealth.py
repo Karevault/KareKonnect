@@ -720,6 +720,14 @@ def _call_instructions(
         contact = (provider_contact_phone or ((provider.contact_phone_e164 or "") if provider else "")).strip()
         if call_initiated:
             lines.append("We are connecting your WhatsApp video call now — please accept when prompted.")
+        elif call_url:
+            lines.extend(
+                [
+                    f"Clinician: {clinician}",
+                    "",
+                    f"Join your video consultation here at your appointment time: {call_url}",
+                ]
+            )
         elif contact:
             display, wa_link = _format_whatsapp_contact(contact)
             lines.extend(
@@ -749,8 +757,6 @@ def _call_instructions(
             lines.extend(["", f"Call note: {call_note}"])
         if appointment_when:
             lines.extend(["", f"Appointment time: {appointment_when}"])
-        if call_url:
-            lines.extend(["", f"Join your video consultation here at your appointment time: {call_url}"])
         lines.extend(
             [
                 "",
@@ -766,6 +772,12 @@ def _call_instructions(
     clinician = _provider_display_name(provider, override=provider_name)
     when_bit = f" Appointment: {appointment_when}." if appointment_when else ""
     url_bit = f" Join: {call_url}" if call_url else ""
+    if call_url:
+        return (
+            f"Telehealth ready (ref {ref}). {billing_line} "
+            f"Clinician: {clinician}. Join your video consultation here at your appointment time: {call_url}."
+            f"{when_bit}"
+        )
     if contact and billing_status in ("paid", "waived"):
         display, wa_link = _format_whatsapp_contact(contact)
         extra = f" Contact {clinician} on WhatsApp: {display}."

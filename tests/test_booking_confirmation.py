@@ -12,6 +12,7 @@ from app.karevault_client import build_contextual_question
 from app.media_intake import _extract_lab_summary
 from app.telehealth import (
     CONFIRM_TOKENS,
+    _call_instructions,
     cancel_telehealth_flow,
     format_provider_name,
     handle_telehealth_message,
@@ -47,6 +48,22 @@ class AppointmentConfirmationTests(unittest.TestCase):
     def tearDown(self) -> None:
         cancel_appointment_flow(PHONE)
         cancel_telehealth_flow(PHONE)
+
+    def test_whatsapp_ready_message_prioritizes_meeting_link(self) -> None:
+        reply = _call_instructions(
+            "ths_test",
+            channel="whatsapp",
+            billing_status="paid",
+            fee_ngn=15000,
+            provider_name="Chidinma Obi",
+            provider_contact_phone="+2348000000000",
+            call_url="https://telehealthportal.karevault.com/call/patient?id=12345",
+            appointment_when="2026-09-10 13:30",
+        )
+        self.assertIn("Join your video consultation here at your appointment time", reply)
+        self.assertIn("https://telehealthportal.karevault.com/call/patient?id=12345", reply)
+        self.assertNotIn("We will send your clinician's WhatsApp number", reply)
+        self.assertNotIn("Open chat:", reply)
 
     def test_confirm_tokens_cover_qa_variants(self) -> None:
         for token in ("YES", "Y", "CONFIRM", "OK", "BOOK", "PROCEED"):
