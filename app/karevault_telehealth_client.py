@@ -15,7 +15,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import requests
 
@@ -82,6 +82,51 @@ def _parse_fee(raw) -> int:
         return int(float(raw or 0))
     except (TypeError, ValueError):
         return 0
+
+
+_CALL_URL_KEYS = (
+    "call_url",
+    "meeting_url",
+    "join_url",
+    "video_url",
+    "video_call_url",
+    "meeting_link",
+    "video_link",
+    "video_call_link",
+    "conference_url",
+    "conference_link",
+)
+
+
+def _extract_call_url(data: Any) -> Optional[str]:
+    """Read a meeting URL from current or nested telehealth API response shapes."""
+    if not isinstance(data, dict):
+        return None
+    for key in _CALL_URL_KEYS:
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    for key in ("appointment", "data", "result"):
+        nested = _extract_call_url(data.get(key))
+        if nested:
+            return nested
+    return None
+
+
+def _extract_appointment_id(data: Any) -> Optional[int]:
+    if not isinstance(data, dict):
+        return None
+    value = data.get("appointment_id")
+    if value is not None:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            pass
+    for key in ("appointment", "data", "result"):
+        nested = _extract_appointment_id(data.get(key))
+        if nested is not None:
+            return nested
+    return None
 
 
 _lock = threading.Lock()
@@ -199,11 +244,17 @@ def create_appointment(
             err = str(data.get("message") or data.get("detail") or f"HTTP {r.status_code}")
             log.warning("KareVault create_appointment failed: %s — %s", err, (r.text or "")[:400])
             return AppointmentResult(ok=False, error=err)
+        call_url = _extract_call_url(data)
+        if not call_url:
+            log.warning(
+                "KareVault create_appointment succeeded without a meeting URL; response keys=%s",
+                sorted(data.keys()),
+            )
         return AppointmentResult(
             ok=True,
-            appointment_id=data.get("appointment_id"),
+            appointment_id=_extract_appointment_id(data),
             status=data.get("status"),
-            call_url=data.get("call_url"),
+            call_url=call_url,
         )
     except Exception as exc:
         log.warning("KareVault create_appointment exception: %s", exc)
@@ -234,9 +285,9 @@ def reschedule_appointment(
             return RescheduleResult(ok=False, error=err)
         return RescheduleResult(
             ok=True,
-            appointment_id=data.get("appointment_id"),
+            appointment_id=_extract_appointment_id(data),
             status=data.get("status"),
-            call_url=data.get("call_url"),
+            call_url=_extract_call_url(data),
             message=data.get("message"),
         )
     except Exception as exc:

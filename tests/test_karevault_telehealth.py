@@ -5,6 +5,8 @@ from app.database import session_scope
 from app.karevault_telehealth_client import (
     RemoteDoctor,
     _parse_fee,
+    _extract_call_url,
+    _extract_appointment_id,
     invalidate_doctors_cache,
     list_doctors,
     telehealth_api_enabled,
@@ -32,6 +34,25 @@ class FeeParsingTests(unittest.TestCase):
     def test_none_or_bad_value_defaults_to_zero(self):
         self.assertEqual(_parse_fee(None), 0)
         self.assertEqual(_parse_fee("not-a-number"), 0)
+
+
+class AppointmentResponseParsingTests(unittest.TestCase):
+    def test_extracts_nested_meeting_link_and_appointment_id(self):
+        payload = {
+            "success": True,
+            "data": {
+                "appointment_id": "123",
+                "appointment": {"meeting_link": "https://meet.example/123"},
+            },
+        }
+        self.assertEqual(_extract_appointment_id(payload), 123)
+        self.assertEqual(_extract_call_url(payload), "https://meet.example/123")
+
+    def test_supports_top_level_call_url(self):
+        self.assertEqual(
+            _extract_call_url({"appointment_id": 456, "call_url": "https://x/call/456"}),
+            "https://x/call/456",
+        )
 
 
 class ListDoctorsParsingTests(unittest.TestCase):
