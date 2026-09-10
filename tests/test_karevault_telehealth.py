@@ -321,6 +321,35 @@ class PaymentSequencingTests(unittest.TestCase):
             session = s.get(TelehealthSession, session_id)
             self.assertEqual(session.external_call_url, "https://telehealthportal.karevault.com/call/patient?id=12345")
 
+    def test_resend_retries_missing_remote_appointment_and_sends_link(self):
+        session_id = self._make_synced_provider_and_session(fee_ngn=5000)
+        from app.karevault_telehealth_client import AppointmentResult
+
+        sent: list[str] = []
+        with session_scope() as s:
+            session = s.get(TelehealthSession, session_id)
+            session.billing_status = "paid"
+            session.status = "confirmed"
+            session.payment_instructions_sent_at = now_iso()
+        with patch(
+            "app.karevault_telehealth_client.create_appointment",
+            return_value=AppointmentResult(ok=True, appointment_id=54321, status="paid", call_url=None),
+        ) as mock_create, patch(
+            "app.karevault_telehealth_client.telehealth_api_enabled", return_value=True
+        ), patch("app.telehealth.attempt_whatsapp_call_for_session", return_value=(False, None)), patch(
+            "app.telehealth.notify_provider_new_booking"
+        ), patch(
+            "app.telehealth._send_patient_telehealth_message",
+            side_effect=lambda **kwargs: sent.append(kwargs["body"]) or MagicMock(ok=True, via="whatsapp"),
+        ):
+            from app.telehealth import deliver_post_payment_patient_message
+
+            self.assertTrue(deliver_post_payment_patient_message(session_id, force=True)[0])
+
+        mock_create.assert_called_once()
+        self.assertIn("https://telehealthportal.karevault.com/call/patient?id=54321", sent[0])
+        self.assertNotIn("We will send your clinician's WhatsApp number", sent[0])
+
     def test_waived_booking_calls_create_appointment_immediately(self):
         session_id = self._make_synced_provider_and_session(fee_ngn=0)
         from app.karevault_telehealth_client import AppointmentResult

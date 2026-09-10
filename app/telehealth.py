@@ -1140,6 +1140,14 @@ def deliver_post_payment_patient_message(session_id: str, *, notify_provider: bo
         provider = s.get(TelehealthProvider, session.provider_id)
         if not provider:
             return False, "Provider not found"
+        if (
+            session.billing_status in ("paid", "waived")
+            and not session.external_call_url
+            and not session.external_appointment_id
+        ):
+            # Payment webhooks can arrive after a transient vendor failure. Retry the
+            # vendor appointment here so a resend can recover the patient's meeting link.
+            _create_remote_appointment_for_session(s, session, provider)
         channel = session.channel
         phone = session.patient_phone_e164
         billing = session.billing_status
