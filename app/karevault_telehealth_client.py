@@ -26,7 +26,10 @@ _DOCTORS_CACHE_TTL_SECONDS = 300  # avoid refetching on every message within one
 
 
 def _base_url() -> str:
-    return (os.getenv("HC_TELEHEALTH_API_BASE_URL") or _DEFAULT_BASE).strip().rstrip("/")
+    base = (os.getenv("HC_TELEHEALTH_API_BASE_URL") or _DEFAULT_BASE).strip().rstrip("/")
+    if base.lower().endswith("/api"):
+        base = base[:-4].rstrip("/")
+    return base
 
 
 def _patient_call_url(appointment_id: Optional[int]) -> Optional[str]:
@@ -250,7 +253,14 @@ def create_appointment(
             data = {}
         if not (200 <= r.status_code < 300) or not data.get("success"):
             err = str(data.get("message") or data.get("detail") or f"HTTP {r.status_code}")
-            log.warning("KareVault create_appointment failed: %s — %s", err, (r.text or "")[:400])
+            log.warning(
+                "KareVault create_appointment failed url=%s status=%s content_type=%s: %s — %s",
+                url,
+                r.status_code,
+                r.headers.get("Content-Type"),
+                err,
+                (r.text or "")[:400],
+            )
             return AppointmentResult(ok=False, error=err)
         appointment_id = _extract_appointment_id(data)
         call_url = _extract_call_url(data) or _patient_call_url(appointment_id)
