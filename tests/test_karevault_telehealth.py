@@ -8,6 +8,7 @@ from app.karevault_telehealth_client import (
     _extract_call_url,
     _extract_appointment_id,
     _patient_call_url,
+    patient_portal_url,
     _base_url,
     invalidate_doctors_cache,
     list_doctors,
@@ -39,6 +40,10 @@ class FeeParsingTests(unittest.TestCase):
 
 
 class AppointmentResponseParsingTests(unittest.TestCase):
+    def test_patient_portal_url_defaults_to_public_entry_page(self):
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(patient_portal_url(), "https://telehealthportal.karevault.com/")
+
     def test_base_url_does_not_duplicate_api_prefix(self):
         with patch.dict("os.environ", {"HC_TELEHEALTH_API_BASE_URL": "https://telehealthapi.karevault.com/api"}):
             self.assertEqual(_base_url(), "https://telehealthapi.karevault.com")

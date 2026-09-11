@@ -40,6 +40,15 @@ def _patient_call_url(appointment_id: Optional[int]) -> Optional[str]:
     return f"{portal}/call/patient?id={appointment_id}"
 
 
+def patient_portal_url() -> str:
+    """Public portal entry point for patients before an appointment URL exists."""
+    return (
+        os.getenv("HC_TELEHEALTH_PATIENT_PORTAL_URL")
+        or os.getenv("HC_TELEHEALTH_PATIENT_PORTAL_BASE_URL")
+        or "https://telehealthportal.karevault.com/"
+    ).strip()
+
+
 def _token() -> Optional[str]:
     return (os.getenv("HC_TELEHEALTH_WHATSAPP_TOKEN") or "").strip() or None
 

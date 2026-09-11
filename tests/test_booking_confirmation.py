@@ -75,8 +75,9 @@ class AppointmentConfirmationTests(unittest.TestCase):
             provider_contact_phone="+2348000000000",
             appointment_when="2026-09-10 13:30",
         )
-        self.assertIn("Your secure video meeting link is being prepared.", reply)
-        self.assertIn("contact helpdesk with ref TH-TEST", reply)
+        self.assertIn("Open the KareVault telehealth portal to complete your patient setup", reply)
+        self.assertIn("https://telehealthportal.karevault.com/", reply)
+        self.assertIn("Use booking ref TH-TEST", reply)
         self.assertNotIn("WhatsApp number", reply)
         self.assertNotIn("Open chat:", reply)
 

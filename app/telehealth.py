@@ -728,12 +728,15 @@ def _call_instructions(
                 ]
             )
         else:
+            from app.karevault_telehealth_client import patient_portal_url
+
             lines.extend(
                 [
                     f"Clinician: {clinician}",
                     "",
-                    "Your secure video meeting link is being prepared.",
-                    f"If it is not sent before your appointment time, contact helpdesk with ref {ref}.",
+                    "Open the KareVault telehealth portal to complete your patient setup:",
+                    patient_portal_url(),
+                    f"Use booking ref {ref} if the portal asks for it.",
                 ]
             )
         if call_note:
@@ -759,6 +762,14 @@ def _call_instructions(
         return (
             f"Telehealth ready (ref {ref}). {billing_line} "
             f"Clinician: {clinician}. Join your video consultation here at your appointment time: {call_url}."
+            f"{when_bit}"
+        )
+    if billing_status in ("paid", "waived"):
+        from app.karevault_telehealth_client import patient_portal_url
+
+        return (
+            f"Telehealth ready (ref {ref}). {billing_line} "
+            f"Open the KareVault telehealth portal to complete your patient setup: {patient_portal_url()}"
             f"{when_bit}"
         )
     if contact and billing_status in ("paid", "waived"):
