@@ -2211,7 +2211,13 @@ def handle_telehealth_message(
             if not provider or provider.status != "active":
                 _reset_flow(flow)
                 return "That provider is no longer available. Send TELEHEALTH to start again."
-            if provider_availability_label(s, provider.id) != "free":
+            # Live KareVault bookings are checked against the selected remote slot by
+            # create_appointment. The local provider busy flag is global to the clinician,
+            # so applying it here would reject valid future slots shown by the API.
+            live_slot_booking = bool(
+                flow.selected_slot_time and flow.selected_slot_date and provider.external_doctor_id
+            )
+            if not live_slot_booking and provider_availability_label(s, provider.id) != "free":
                 if flow.selected_slot_time:
                     flow.step = "doctor"
                     flow.selected_provider_id = None
