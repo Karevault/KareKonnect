@@ -163,6 +163,7 @@ def _reset_flow(flow: TelehealthPatientFlow) -> None:
     flow.selected_slot_date = None
     flow.selected_slot_time = None
     flow.pending_session_id = None
+    flow.reason = None
     flow.updated_at = now_iso()
 
 
@@ -598,6 +599,11 @@ def _advance_past_patient_info(s: Session, flow, phone_e164: str) -> str:
         flow.step = _PATIENT_FIELD_STEP[field]
         flow.updated_at = now_iso()
         return _PATIENT_FIELD_PROMPTS[field]
+    # After collecting user fields, ask for reason if not already provided
+    if not getattr(flow, "reason", None):
+        flow.step = "patient_reason"
+        flow.updated_at = now_iso()
+        return "What's the reason for your consultation? (brief description, e.g. 'Fever and headache')"
     flow.step = "confirm"
     flow.updated_at = now_iso()
     from app.karevault_telehealth_client import list_doctors
@@ -1271,7 +1277,7 @@ def _create_remote_appointment_for_session(
         appointment_date=session.appointment_date,
         appointment_time=session.appointment_time,
         appointment_type="video",
-        reason="Telehealth consultation via Kareconnect",
+        reason=(session.reason or "Telehealth consultation via Kareconnect")[:500],
     )
     if result.ok:
         from app.karevault_telehealth_client import _patient_call_url
@@ -1324,7 +1330,7 @@ def on_payment_confirmed(session_id: str, *, reference: Optional[str] = None) ->
         )
         notify_helpdesk_telehealth_booking(session_id, event="paid")
 
-    ok, _detail = deliver_post_payment_patient_message(session_id)
+    ok, _detail = deliver_post_payment_patient_message(session_id, force=False)
     return ok
 
 
@@ -2174,6 +2180,14 @@ def handle_telehealth_message(
             user.updated_at = now_iso()
             return _advance_past_patient_info(s, flow, phone_e164)
 
+        if flow.step == "patient_reason":
+            reason = (text or "").strip()
+            if len(reason) < 3:
+                return "Please provide a brief reason for your consultation (at least 3 characters)."
+            flow.reason = reason[:500]
+            flow.updated_at = now_iso()
+            return _advance_past_patient_info(s, flow, phone_e164)
+
         if flow.step == "profession":
             if not text.isdigit():
                 if first in ROUTER_ESCAPE_COMMANDS:
@@ -2273,6 +2287,7 @@ def handle_telehealth_message(
                     appointment_time=flow.selected_slot_time,
                     call_mode="whatsapp_video" if channel == "whatsapp" else "phone",
                     mask_patient_number=provider.mask_patient_number,
+                    reason=flow.reason,
                     created_at=now,
                     updated_at=now,
                     completed_at=None,

@@ -1226,6 +1226,14 @@ def handle_appointment_message(
             user.updated_at = now_iso()
             return _advance_past_patient_info(s, flow, phone)
 
+        if flow.step == "patient_reason":
+            reason = (text or "").strip()
+            if len(reason) < 3:
+                return "Please provide a brief reason for your consultation (at least 3 characters)."
+            flow.reason = reason[:500]
+            flow.updated_at = now_iso()
+            return _advance_past_patient_info(s, flow, phone)
+
         if flow.step == "profession":
             if upper in ("BACK", "0"):
                 flow.step = "visit_type"

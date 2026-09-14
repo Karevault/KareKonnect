@@ -470,6 +470,7 @@ class TelehealthSession(Base):
     payment_instructions_sent_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     call_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     mask_patient_number: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Patient's reason for consultation
     # The patient's chosen slot, captured at booking time regardless of payment status, and
     # the KareVault Telehealth API's own appointment id/video link once create_appointment
     # has actually been called for this session (immediately for waived, on payment for paid).
@@ -527,6 +528,7 @@ class TelehealthPatientFlow(Base):
     selected_slot_date: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     selected_slot_time: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     pending_session_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Patient's reason for consultation
     updated_at: Mapped[str] = mapped_column(String(32), nullable=False)
 
 
