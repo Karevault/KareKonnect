@@ -210,7 +210,7 @@ class PatientInfoValidationTests(unittest.TestCase):
 
     def test_split_full_name(self):
         self.assertEqual(split_full_name("John Doe"), ("John", "Doe"))
-        self.assertEqual(split_full_name("Madonna"), ("Madonna", ""))
+        self.assertEqual(split_full_name("Madonna"), ("Madonna", "Madonna"))
         self.assertEqual(split_full_name(None), ("Patient", ""))
         self.assertEqual(split_full_name(""), ("Patient", ""))
 

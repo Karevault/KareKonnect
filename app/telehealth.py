@@ -1211,7 +1211,7 @@ def split_full_name(full_name: Optional[str]) -> tuple[str, str]:
     if not parts:
         return "Patient", ""
     if len(parts) == 1:
-        return parts[0], ""
+        return parts[0], parts[0]
     return parts[0], parts[1]
 
 
