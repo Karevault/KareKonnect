@@ -522,10 +522,12 @@ def sync_local_provider_from_remote_doctor(s: Session, doctor) -> TelehealthProv
 
 
 def missing_patient_fields(user: Optional[User]) -> list[str]:
-    """Returns the subset of ['email','gender','dob'] not yet on the User record."""
+    """Returns the subset of ['full_name','email','gender','dob'] not yet on the User record."""
     if user is None:
-        return ["email", "gender", "dob"]
+        return ["full_name", "email", "gender", "dob"]
     missing = []
+    if not (user.full_name or "").strip():
+        missing.append("full_name")
     if not (user.email or "").strip():
         missing.append("email")
     if not (user.gender or "").strip():
@@ -535,8 +537,9 @@ def missing_patient_fields(user: Optional[User]) -> list[str]:
     return missing
 
 
-_PATIENT_FIELD_STEP = {"email": "patient_email", "gender": "patient_gender", "dob": "patient_dob"}
+_PATIENT_FIELD_STEP = {"full_name": "patient_name", "email": "patient_email", "gender": "patient_gender", "dob": "patient_dob"}
 _PATIENT_FIELD_PROMPTS = {
+    "full_name": "What's your full name? (needed once, for your telehealth booking)",
     "email": "What's your email address? (needed once, for your telehealth booking)",
     "gender": "What's your gender — reply Male, Female, or Other?",
     "dob": "What's your date of birth? Reply as YYYY-MM-DD (e.g. 1990-05-14).",
@@ -569,6 +572,11 @@ def _validate_dob(text: str) -> Optional[str]:
     if parsed >= date.today():
         return None
     return t
+
+
+def _validate_full_name(text: str) -> Optional[str]:
+    t = (text or "").strip()
+    return t if len(t) >= 2 else None
 
 
 def _advance_past_patient_info(s: Session, flow, phone_e164: str) -> str:
@@ -2128,6 +2136,15 @@ def handle_telehealth_message(
             slot = slots[idx - 1]
             flow.selected_slot_time = slot.start
             flow.updated_at = now_iso()
+            return _advance_past_patient_info(s, flow, phone_e164)
+
+        if flow.step == "patient_name":
+            full_name = _validate_full_name(text)
+            if not full_name:
+                return "Please enter your full name (at least 2 characters)."
+            user = _get_or_create_user_row(s, phone_e164, channel)
+            user.full_name = full_name
+            user.updated_at = now_iso()
             return _advance_past_patient_info(s, flow, phone_e164)
 
         if flow.step == "patient_email":

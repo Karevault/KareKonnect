@@ -42,6 +42,7 @@ from app.telehealth import (
     _specialty_menu_text,
     _validate_dob,
     _validate_email,
+    _validate_full_name,
     finalize_new_booking,
     format_fee,
     format_provider_name,
@@ -1187,6 +1188,15 @@ def handle_appointment_message(
             slot = slots[idx - 1]
             flow.selected_slot_time = slot.start
             flow.updated_at = now_iso()
+            return _advance_past_patient_info(s, flow, phone)
+
+        if flow.step == "patient_name":
+            full_name = _validate_full_name(text)
+            if not full_name:
+                return "Please enter your full name (at least 2 characters)."
+            user = _get_or_create_user_row(s, phone, channel)
+            user.full_name = full_name
+            user.updated_at = now_iso()
             return _advance_past_patient_info(s, flow, phone)
 
         if flow.step == "patient_email":

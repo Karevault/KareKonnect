@@ -20,6 +20,7 @@ from app.telehealth import (
     _normalize_gender,
     _validate_dob,
     _validate_email,
+    _validate_full_name,
     missing_patient_fields,
     split_full_name,
     sync_local_provider_from_remote_doctor,
@@ -193,8 +194,14 @@ class PatientInfoValidationTests(unittest.TestCase):
         self.assertIsNone(_validate_dob("not-a-date"))
         self.assertIsNone(_validate_dob("2999-01-01"))  # future date rejected
 
+    def test_full_name_validation(self):
+        self.assertEqual(_validate_full_name("John Doe"), "John Doe")
+        self.assertEqual(_validate_full_name("Madonna"), "Madonna")
+        self.assertIsNone(_validate_full_name(""))
+        self.assertIsNone(_validate_full_name("A"))  # too short
+
     def test_missing_patient_fields(self):
-        self.assertEqual(sorted(missing_patient_fields(None)), ["dob", "email", "gender"])
+        self.assertEqual(sorted(missing_patient_fields(None)), ["dob", "email", "full_name", "gender"])
         user = User(
             id="usr_test",
             phone_e164="+2340000000001",
@@ -206,7 +213,7 @@ class PatientInfoValidationTests(unittest.TestCase):
             created_at=now_iso(),
             updated_at=now_iso(),
         )
-        self.assertEqual(missing_patient_fields(user), ["dob"])
+        self.assertEqual(sorted(missing_patient_fields(user)), ["dob", "full_name"])
 
     def test_split_full_name(self):
         self.assertEqual(split_full_name("John Doe"), ("John", "Doe"))
