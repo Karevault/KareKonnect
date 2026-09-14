@@ -10,6 +10,7 @@ from app.karevault_telehealth_client import (
     _patient_call_url,
     patient_portal_url,
     _base_url,
+    _headers,
     invalidate_doctors_cache,
     list_doctors,
     telehealth_api_enabled,
@@ -40,6 +41,17 @@ class FeeParsingTests(unittest.TestCase):
 
 
 class AppointmentResponseParsingTests(unittest.TestCase):
+    def test_telehealth_requests_explicitly_accept_json(self):
+        with patch.dict("os.environ", {"HC_TELEHEALTH_WHATSAPP_TOKEN": "test-token"}):
+            self.assertEqual(
+                _headers(),
+                {
+                    "Authorization": "Bearer test-token",
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+            )
+
     def test_patient_portal_url_defaults_to_public_entry_page(self):
         with patch.dict("os.environ", {}, clear=True):
             self.assertEqual(patient_portal_url(), "https://telehealthportal.karevault.com/")

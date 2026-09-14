@@ -59,7 +59,11 @@ def telehealth_api_enabled() -> bool:
 
 
 def _headers() -> dict[str, str]:
-    return {"Authorization": f"Bearer {_token()}", "Content-Type": "application/json"}
+    return {
+        "Authorization": f"Bearer {_token()}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
 
 
 @dataclass(frozen=True)
