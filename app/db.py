@@ -392,6 +392,7 @@ def _ensure_telehealth_session_karevault_columns() -> None:
         "ALTER TABLE telehealth_sessions ADD COLUMN IF NOT EXISTS appointment_time VARCHAR(8)",
         "ALTER TABLE telehealth_sessions ADD COLUMN IF NOT EXISTS external_appointment_id VARCHAR(64)",
         "ALTER TABLE telehealth_sessions ADD COLUMN IF NOT EXISTS external_call_url TEXT",
+        "ALTER TABLE telehealth_sessions ADD COLUMN IF NOT EXISTS reason TEXT",
     ]
     with engine.begin() as conn:
         for sql in statements:
@@ -408,6 +409,8 @@ def _ensure_patient_flow_karevault_columns() -> None:
         "ALTER TABLE telehealth_patient_flows ADD COLUMN IF NOT EXISTS selected_doctor_id VARCHAR(64)",
         "ALTER TABLE telehealth_patient_flows ADD COLUMN IF NOT EXISTS selected_slot_date VARCHAR(16)",
         "ALTER TABLE telehealth_patient_flows ADD COLUMN IF NOT EXISTS selected_slot_time VARCHAR(8)",
+        "ALTER TABLE telehealth_patient_flows ADD COLUMN IF NOT EXISTS pending_session_id VARCHAR(64)",
+        "ALTER TABLE telehealth_patient_flows ADD COLUMN IF NOT EXISTS reason TEXT",
         "ALTER TABLE appointment_patient_flows ADD COLUMN IF NOT EXISTS selected_specialty VARCHAR(128)",
         "ALTER TABLE appointment_patient_flows ADD COLUMN IF NOT EXISTS selected_doctor_id VARCHAR(64)",
         "ALTER TABLE appointment_patient_flows ADD COLUMN IF NOT EXISTS selected_slot_date VARCHAR(16)",
