@@ -31,8 +31,9 @@ class EffectiveIntegration:
     operator_webhook_url: Optional[str]
     helpdesk_phone_e164: Optional[str]
     on_call_clinician_phone_e164: Optional[str]
-    paystack_secret_key: Optional[str]
-    paystack_public_key: Optional[str]
+    opay_secret_key: Optional[str]
+    opay_public_key: Optional[str]
+    opay_merchant_id: Optional[str]
     meta_wa_calling_enabled: bool
     meta_wa_calling_webrtc_bridge_url: Optional[str]
 
@@ -101,8 +102,9 @@ def get_effective_integration() -> EffectiveIntegration:
         on_call_clinician_phone_e164=_coalesce(
             row.on_call_clinician_phone_e164, env_settings.on_call_clinician_phone_e164
         ),
-        paystack_secret_key=_coalesce(row.paystack_secret_key, env_settings.paystack_secret_key),
-        paystack_public_key=_coalesce(row.paystack_public_key, env_settings.paystack_public_key),
+        opay_secret_key=_coalesce(row.opay_secret_key, env_settings.opay_secret_key),
+        opay_public_key=_coalesce(row.opay_public_key, env_settings.opay_public_key),
+        opay_merchant_id=_coalesce(row.opay_merchant_id, env_settings.opay_merchant_id),
         meta_wa_calling_enabled=bool(
             row.meta_wa_calling_enabled
             if row.meta_wa_calling_enabled is not None

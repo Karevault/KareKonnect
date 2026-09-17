@@ -4,7 +4,7 @@
   </div>
   <div class="card-body">
     <p class="text-muted small mb-3">
-      Runs read-only checks against Meta Graph, Twilio, Africa’s Talking, and Paystack using saved settings
+      Runs read-only checks against Meta Graph, Twilio, Africa’s Talking, and OPay using saved settings
       (same as env when fields are empty). Fix failures, then use <strong>Save</strong> on the edit form if you changed values.
     </p>
     <div class="row g-2">
@@ -29,8 +29,8 @@
         </form>
       </div>
       <div class="col-md-4">
-        <form method="post" action="/admin/integration-self-test/run-paystack">
-          <button type="submit" class="btn btn-outline-primary w-100">Test Paystack</button>
+        <form method="post" action="/admin/integration-self-test/run-opay">
+          <button type="submit" class="btn btn-outline-primary w-100">Test OPay</button>
         </form>
       </div>
     </div>

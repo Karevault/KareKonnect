@@ -69,7 +69,7 @@
 - Book video consultation (`TELEHEALTH`)
 - Specialty & provider selection
 - Provider fees & ratings display
-- Paystack payment links
+- OPay payment links
 - Payment webhook confirmation
 - Meta WhatsApp video calling
 - Post-visit ratings (`RATE 1-5`)
@@ -111,7 +111,7 @@
 - Next of kin, glucose readings, medication drafts, reminders
 - EHR patient links & sync logs
 - Translation monitoring & cache
-- Integration settings (Meta, Twilio, AT, Paystack, EHR)
+- Integration settings (Meta, Twilio, AT, OPay, EHR)
 - Channel settings (keywords, USSD, help menu)
 - Test chat simulator
 - Webhook reference & self-tests
@@ -121,7 +121,7 @@
 - Meta WhatsApp webhook
 - Twilio inbound & status webhooks
 - Africa's Talking SMS & USSD webhooks
-- Paystack payment webhook
+- OPay payment webhook
 - Operator event webhooks (helpdesk, telehealth)
 - Health check endpoints
 
@@ -135,4 +135,4 @@
 - In-house FastText + Marian (Pidgin; see Translation & ML above)
 - KareVault symptom checker
 - KareVault EHR
-- Paystack
+- OPay

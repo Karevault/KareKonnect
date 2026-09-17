@@ -34,13 +34,13 @@
           <input class="form-control form-control-sm font-monospace" readonly value="{{ base_url }}/webhooks/africastalking/ussd"/>
         </div>
         <div class="border rounded p-3">
-          <div class="fw-semibold mb-1">Paystack — telehealth payment events</div>
-          <input class="form-control form-control-sm font-monospace" readonly value="{{ base_url }}/webhooks/paystack"/>
+          <div class="fw-semibold mb-1">OPay — telehealth payment events</div>
+          <input class="form-control form-control-sm font-monospace" readonly value="{{ base_url }}/webhooks/opay"/>
         </div>
       </div>
       <p class="small text-muted mt-3 mb-0">
         Twilio status: Messaging Service → Integration → Status callback URL. Outbound sends also set StatusCallback when base URL is HTTPS.
-        Paystack: Settings → API Keys &amp; Webhooks → add <code>charge.success</code> to the URL above. Meta Calling: subscribe webhook field <code>calls</code> on the same Meta WhatsApp webhook.
+        OPay: Merchant dashboard → set the callback/notification URL above (payload signed with HMAC-SHA3-512; see docs). Meta Calling: subscribe webhook field <code>calls</code> on the same Meta WhatsApp webhook.
       </p>
     </div>
   </div>

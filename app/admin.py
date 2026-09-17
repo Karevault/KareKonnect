@@ -92,7 +92,7 @@ from app.integration_self_test import (
     test_africastalking,
     test_broadcast_template,
     test_meta_whatsapp,
-    test_paystack,
+    test_opay,
     test_twilio,
 )
 from app.translation_monitoring import gather_translation_monitoring, run_live_pcm_smoke
@@ -908,7 +908,7 @@ class TelehealthSessionAdmin(HCModelView, model=TelehealthSession):
     column_labels = {
         TelehealthSession.patient_phone_e164: "Patient (masked when enabled)",
         TelehealthSession.fee_ngn: "Fee at booking (NGN)",
-        TelehealthSession.billing_reference: "Payment reference (bank transfer, Paystack, etc.)",
+        TelehealthSession.billing_reference: "Payment reference (OPay order reference).",
         TelehealthSession.billing_notes: "Billing notes for finance team",
         TelehealthSession.status: "Live session status (updates from WhatsApp call webhooks or admin actions)",
         TelehealthSession.provider_joined: "True when provider connected to the WhatsApp video call",
@@ -1946,10 +1946,10 @@ class IntegrationSelfTestView(BaseView):
         out = await anyio.to_thread.run_sync(test_broadcast_template)
         return HTMLResponse(format_outcome_html(out, back_url=back))
 
-    @expose("/integration-self-test/run-paystack", methods=["POST"])
-    async def run_paystack_test(self, request: Request) -> HTMLResponse:
+    @expose("/integration-self-test/run-opay", methods=["POST"])
+    async def run_opay_test(self, request: Request) -> HTMLResponse:
         back = safe_back_url(request.headers.get("referer"))
-        out = await anyio.to_thread.run_sync(test_paystack)
+        out = await anyio.to_thread.run_sync(test_opay)
         return HTMLResponse(format_outcome_html(out, back_url=back))
 
 
@@ -1995,8 +1995,9 @@ class IntegrationSettingsAdmin(HCModelView, model=IntegrationSettings):
         IntegrationSettings.at_api_key,
         IntegrationSettings.at_shortcode,
         IntegrationSettings.operator_webhook_url,
-        IntegrationSettings.paystack_secret_key,
-        IntegrationSettings.paystack_public_key,
+        IntegrationSettings.opay_secret_key,
+        IntegrationSettings.opay_public_key,
+        IntegrationSettings.opay_merchant_id,
         IntegrationSettings.meta_wa_calling_enabled,
         IntegrationSettings.meta_wa_calling_webrtc_bridge_url,
     ]
@@ -2021,8 +2022,9 @@ class IntegrationSettingsAdmin(HCModelView, model=IntegrationSettings):
         IntegrationSettings.at_api_key: "Africa's Talking API key.",
         IntegrationSettings.at_shortcode: "Africa's Talking sender ID / short code.",
         IntegrationSettings.operator_webhook_url: "POST JSON on helpdesk + telehealth events (telehealth.session.booked, telehealth.session.paid). Env HC_OPERATOR_WEBHOOK_URL if unset here.",
-        IntegrationSettings.paystack_secret_key: "Paystack secret key (sk_live_… / sk_test_…). Enables telehealth payment links. Env PAYSTACK_SECRET_KEY.",
-        IntegrationSettings.paystack_public_key: "Paystack public key (pk_…) for client-side checkout if needed. Env PAYSTACK_PUBLIC_KEY.",
+        IntegrationSettings.opay_secret_key: "OPay merchant secret key — signs API requests and verifies webhook callbacks. Enables telehealth payment links. Env OPAY_SECRET_KEY.",
+        IntegrationSettings.opay_public_key: "OPay merchant public key — used in the Cashier API Authorization header. Env OPAY_PUBLIC_KEY.",
+        IntegrationSettings.opay_merchant_id: "OPay merchant ID — sent as the MerchantId header on API calls. Env OPAY_MERCHANT_ID.",
         IntegrationSettings.meta_wa_calling_enabled: "Enable Meta WhatsApp Calling API for business-initiated video after payment (requires calls webhook + WebRTC bridge or SDP).",
         IntegrationSettings.meta_wa_calling_webrtc_bridge_url: "Optional HTTP endpoint POST {session_id,to} → {sdp} for Meta /calls connect. Env HC_META_WA_CALLING_WEBRTC_BRIDGE_URL.",
     }
@@ -2059,6 +2061,7 @@ class IntegrationSettingsAdmin(HCModelView, model=IntegrationSettings):
                 "at_shortcode",
                 "operator_webhook_url",
                 "meta_wa_calling_webrtc_bridge_url",
+                "opay_merchant_id",
             ),
         )
         for secret_field in (
@@ -2066,8 +2069,8 @@ class IntegrationSettingsAdmin(HCModelView, model=IntegrationSettings):
             "meta_app_secret",
             "twilio_auth_token",
             "at_api_key",
-            "paystack_secret_key",
-            "paystack_public_key",
+            "opay_secret_key",
+            "opay_public_key",
         ):
             if not str(data.get(secret_field) or "").strip():
                 data[secret_field] = getattr(model, secret_field, None)

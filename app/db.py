@@ -269,6 +269,13 @@ def _ensure_integration_paystack_calling_columns() -> None:
         )
 
 
+def _ensure_integration_opay_columns() -> None:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS opay_secret_key TEXT"))
+        conn.execute(text("ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS opay_public_key TEXT"))
+        conn.execute(text("ALTER TABLE integration_settings ADD COLUMN IF NOT EXISTS opay_merchant_id TEXT"))
+
+
 def _ensure_clinical_action_tables() -> None:
     """New clinical models use create_all; columns below are additive on existing tables."""
     with engine.begin() as conn:
@@ -586,6 +593,7 @@ def init_db() -> None:
     _ensure_app_settings_triage_keyword_column()
     _ensure_app_settings_reschedule_keyword_column()
     _ensure_integration_paystack_calling_columns()
+    _ensure_integration_opay_columns()
     _ensure_telehealth_session_extra_columns()
     _ensure_telehealth_session_karevault_columns()
     _ensure_telehealth_provider_external_id_column()

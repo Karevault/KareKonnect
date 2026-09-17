@@ -61,8 +61,9 @@ class Settings:
     helpdesk_phone_e164: Optional[str] = _env("HC_HELPDESK_PHONE")
     on_call_clinician_phone_e164: Optional[str] = _env("HC_ON_CALL_CLINICIAN_PHONE")
 
-    paystack_secret_key: Optional[str] = _env("PAYSTACK_SECRET_KEY")
-    paystack_public_key: Optional[str] = _env("PAYSTACK_PUBLIC_KEY")
+    opay_secret_key: Optional[str] = _env("OPAY_SECRET_KEY")
+    opay_public_key: Optional[str] = _env("OPAY_PUBLIC_KEY")
+    opay_merchant_id: Optional[str] = _env("OPAY_MERCHANT_ID")
     meta_wa_calling_enabled: bool = _env_bool("HC_META_WA_CALLING_ENABLED", False)
     meta_wa_calling_webrtc_bridge_url: Optional[str] = _env("HC_META_WA_CALLING_WEBRTC_BRIDGE_URL")
 

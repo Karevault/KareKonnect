@@ -156,11 +156,11 @@ def test_broadcast_template() -> SelfTestOutcome:
     return SelfTestOutcome(False, title, lines)
 
 
-def test_paystack() -> SelfTestOutcome:
-    from app.paystack_billing import test_paystack_initialize
+def test_opay() -> SelfTestOutcome:
+    from app.opay_billing import test_opay_initialize
 
-    title = "Paystack (telehealth payments)"
-    ok, detail = test_paystack_initialize()
+    title = "OPay (telehealth payments)"
+    ok, detail = test_opay_initialize()
     return SelfTestOutcome(ok, title, [detail])
 
 

@@ -700,9 +700,8 @@ def telehealth_payment_complete(
     request: Request,
     session_id: Optional[str] = None,
     reference: Optional[str] = None,
-    trxref: Optional[str] = None,
 ):
-    """Browser return after Paystack checkout — verifies payment and sends call instructions."""
+    """Browser return after OPay checkout — verifies payment and sends call instructions."""
     import logging
 
     from app.telehealth import confirm_payment_from_browser_callback
@@ -712,18 +711,16 @@ def telehealth_payment_complete(
         title, body, _sent = confirm_payment_from_browser_callback(
             session_id,
             reference=reference,
-            trxref=trxref,
         )
     except Exception:
         log.exception(
-            "telehealth payment complete failed session_id=%s reference=%s trxref=%s",
+            "telehealth payment complete failed session_id=%s reference=%s",
             session_id,
             reference,
-            trxref,
         )
         title = "Payment processing"
         body = (
-            "We received your return from Paystack but could not finish automatically. "
+            "We received your return from OPay but could not finish automatically. "
             "If payment succeeded, return to your Kareconnect WhatsApp chat — instructions are sent when payment confirms. "
             "You can also refresh this page in a minute."
         )
@@ -734,28 +731,26 @@ def telehealth_payment_complete(
     )
 
 
-@app.post("/webhooks/paystack")
-async def paystack_webhook(request: Request):
+@app.post("/webhooks/opay")
+async def opay_webhook(request: Request):
     """
-    Paystack webhooks (required for bank-transfer / DVA payments):
-    - dedicatedaccount.assign.success → send bank account to patient
-    - charge.success → mark paid + send video call instructions
+    OPay payment status callback: payload.status == SUCCESS marks the booking paid
+    and sends video call instructions.
 
-    Register in Paystack Dashboard → Settings → Webhooks:
-    POST https://kareconnect.karevault.com/webhooks/paystack
+    Register as the callback URL in the OPay merchant dashboard:
+    POST https://kareconnect.karevault.com/webhooks/opay
     """
-    from app.paystack_billing import verify_webhook_signature
-    from app.telehealth import apply_paystack_webhook_event
+    from app.opay_billing import verify_webhook_signature
+    from app.telehealth import apply_opay_webhook_event
 
     body = await request.body()
-    sig = request.headers.get("x-paystack-signature")
-    if not verify_webhook_signature(body, sig):
-        raise HTTPException(status_code=403, detail="Invalid Paystack signature")
     try:
         payload = json.loads(body.decode("utf-8") or "{}")
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
-    await anyio.to_thread.run_sync(lambda: apply_paystack_webhook_event(payload))
+    if not verify_webhook_signature(payload):
+        raise HTTPException(status_code=403, detail="Invalid OPay signature")
+    await anyio.to_thread.run_sync(lambda: apply_opay_webhook_event(payload))
     return JSONResponse({"status": "ok"})
 
 

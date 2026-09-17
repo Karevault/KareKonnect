@@ -108,8 +108,12 @@ class IntegrationSettings(Base):
     # and may reply with: TKT <ticket_id> <message>
     helpdesk_phone_e164: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     on_call_clinician_phone_e164: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    # Deprecated (Paystack was replaced by OPay); left in place to avoid a destructive column drop.
     paystack_secret_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     paystack_public_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    opay_secret_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    opay_public_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    opay_merchant_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     meta_wa_calling_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Optional HTTP endpoint that returns WebRTC SDP for business-initiated Meta calls.
     meta_wa_calling_webrtc_bridge_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

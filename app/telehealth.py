@@ -652,9 +652,6 @@ def _call_instructions(
     channel: str,
     billing_status: str = "pending",
     payment_url: Optional[str] = None,
-    payment_account_number: Optional[str] = None,
-    payment_bank_name: Optional[str] = None,
-    payment_account_name: Optional[str] = None,
     call_initiated: bool = False,
     call_note: Optional[str] = None,
     fee_ngn: Optional[int] = None,
@@ -681,27 +678,8 @@ def _call_instructions(
             lines.append(f"Your slot: {appointment_when} (held until payment or timeout).")
         lines.append("")
         lines.append("HOW TO PAY:")
-        if payment_account_number and payment_bank_name:
-            lines.extend(
-                [
-                    "Bank transfer (Paystack dedicated account):",
-                    f"Bank: {payment_bank_name}",
-                    f"Account number: {payment_account_number}",
-                ]
-            )
-            if payment_account_name:
-                lines.append(f"Account name: {payment_account_name}")
-            lines.extend(
-                [
-                    f"Amount: {fee} exactly",
-                    f"Reference: {ref}",
-                    "",
-                    "Transfer the exact amount from your bank app. When Paystack receives it, "
-                    "we will automatically send your video call instructions on this chat.",
-                ]
-            )
-        elif payment_url:
-            lines.append(f"Pay online (card, bank transfer, USSD, or QR):\n{payment_url}")
+        if payment_url:
+            lines.append(f"Pay online (card, bank transfer, USSD, or OPay wallet):\n{payment_url}")
             lines.append("")
             lines.append(
                 "When payment is confirmed, we will automatically send video call instructions on this chat."
@@ -709,8 +687,8 @@ def _call_instructions(
         else:
             lines.extend(
                 [
-                    "Your payment account is being generated — we will send bank details shortly.",
-                    f"If nothing arrives in a few minutes, send: Helpdesk telehealth payment ref {ref}",
+                    "We could not generate a payment link just now.",
+                    f"Send: Helpdesk telehealth payment ref {ref}",
                 ]
             )
         lines.extend(
@@ -968,9 +946,6 @@ def resend_patient_telehealth_message(session_id: str, *, notify_provider: bool 
         channel = session.channel
         phone = session.patient_phone_e164
         payment_url = session.payment_url
-        payment_account_number = session.payment_account_number
-        payment_bank_name = session.payment_bank_name
-        payment_account_name = session.payment_account_name
         fee_ngn = provider.fee_ngn
         currency = provider.currency
         prov_name = _provider_display_name(provider)
@@ -989,9 +964,6 @@ def resend_patient_telehealth_message(session_id: str, *, notify_provider: bool 
         channel=channel,
         billing_status=billing,
         payment_url=payment_url,
-        payment_account_number=payment_account_number,
-        payment_bank_name=payment_bank_name,
-        payment_account_name=payment_account_name,
         fee_ngn=fee_ngn,
         currency=currency,
         provider_name=prov_name,
@@ -1105,34 +1077,6 @@ def attempt_whatsapp_call_for_session(session_id: str) -> tuple[bool, Optional[s
     return ok, err
 
 
-def deliver_payment_account_message(session_id: str) -> None:
-    """Send bank-transfer details when DVA is assigned asynchronously."""
-    with session_scope() as s:
-        session = s.get(TelehealthSession, session_id)
-        if not session or session.billing_status != "pending":
-            return
-        if not session.payment_account_number:
-            return
-        provider = s.get(TelehealthProvider, session.provider_id)
-        if not provider:
-            return
-        body = _call_instructions(
-            session_id,
-            provider=None,
-            channel=session.channel,
-            billing_status="pending",
-            payment_account_number=session.payment_account_number,
-            payment_bank_name=session.payment_bank_name,
-            payment_account_name=session.payment_account_name,
-            payment_url=session.payment_url,
-            fee_ngn=provider.fee_ngn,
-            currency=provider.currency,
-            provider_name=_provider_display_name(provider),
-            provider_contact_phone=(provider.contact_phone_e164 or "").strip(),
-        )
-        phone = session.patient_phone_e164
-        ch: Literal["sms", "whatsapp"] = "whatsapp" if session.channel == "whatsapp" else "sms"
-    _send_patient_telehealth_message(phone=phone, body=body, channel=ch)
 
 
 def deliver_post_payment_patient_message(session_id: str, *, notify_provider: bool = True, force: bool = False) -> tuple[bool, str]:
@@ -1389,7 +1333,7 @@ def _dispatch_booking_notifications(
 
 
 def finalize_new_booking(session_id: str, *, db: Optional[Session] = None) -> str:
-    """Paystack link, waived flow, or immediate instructions after session row is created."""
+    """OPay link, waived flow, or immediate instructions after session row is created."""
     if db is not None:
         return _finalize_new_booking_impl(db, session_id)
     with session_scope() as s:
@@ -1397,7 +1341,7 @@ def finalize_new_booking(session_id: str, *, db: Optional[Session] = None) -> st
 
 
 def _finalize_new_booking_impl(s: Session, session_id: str) -> str:
-    from app.paystack_billing import create_telehealth_payment, is_configured as paystack_ready
+    from app.opay_billing import create_telehealth_payment, is_configured as opay_ready
 
     session = s.get(TelehealthSession, session_id)
     if not session:
@@ -1471,20 +1415,16 @@ def _finalize_new_booking_impl(s: Session, session_id: str) -> str:
             appointment_when=appointment_when,
         )
 
-    if paystack_ready():
+    if opay_ready():
         setup = create_telehealth_payment(
             session_id=session_id,
             phone_e164=phone,
             amount_ngn=fee,
             patient_name=patient_name,
         )
-        if not setup.error or setup.account_number or setup.checkout_url:
+        if setup.checkout_url:
             session.payment_url = setup.checkout_url
             session.billing_reference = setup.reference
-            session.paystack_customer_email = setup.customer_email
-            session.payment_account_number = setup.account_number
-            session.payment_bank_name = setup.bank_name
-            session.payment_account_name = setup.account_name
             session.updated_at = now_iso()
             pending_provider = TelehealthProvider(
                 id=provider_id,
@@ -1503,18 +1443,15 @@ def _finalize_new_booking_impl(s: Session, session_id: str) -> str:
                 channel=channel,
                 billing_status="pending",
                 payment_url=setup.checkout_url,
-                payment_account_number=setup.account_number,
-                payment_bank_name=setup.bank_name,
-                payment_account_name=setup.account_name,
                 appointment_when=(
                     f"{session.appointment_date} {session.appointment_time}"
                     if session.appointment_date
                     else None
                 ),
             )
-        _log.warning("Paystack setup failed for %s: %s", session_id, setup.error)
+        _log.warning("OPay setup failed for %s: %s", session_id, setup.error)
         if setup.error:
-            session.billing_notes = f"Paystack setup failed: {setup.error}"[:2000]
+            session.billing_notes = f"OPay setup failed: {setup.error}"[:2000]
             session.updated_at = now_iso()
 
     fallback_provider = TelehealthProvider(
@@ -1534,9 +1471,6 @@ def _finalize_new_booking_impl(s: Session, session_id: str) -> str:
         channel=channel,
         billing_status="pending",
         payment_url=session.payment_url,
-        payment_account_number=session.payment_account_number,
-        payment_bank_name=session.payment_bank_name,
-        payment_account_name=session.payment_account_name,
         appointment_when=(
             f"{session.appointment_date} {session.appointment_time}" if session.appointment_date else None
         ),
@@ -1547,17 +1481,16 @@ def confirm_payment_from_browser_callback(
     session_id: Optional[str],
     *,
     reference: Optional[str] = None,
-    trxref: Optional[str] = None,
 ) -> tuple[str, str, bool]:
     """
-    Paystack redirects the patient here after checkout. Verify with Paystack API and
+    OPay redirects the patient here after checkout. Verify with OPay API and
     confirm payment (fallback when webhook is missing or delayed).
     Returns (title, body_paragraph, instructions_sent).
     """
-    from app.paystack_billing import payment_reference_for_session, verify_transaction
+    from app.opay_billing import payment_reference_for_session, verify_transaction
 
     sid = (session_id or "").strip()
-    ref = (reference or trxref or "").strip()
+    ref = (reference or "").strip()
     if not sid and not ref:
         return (
             "Payment",
@@ -1606,7 +1539,7 @@ def confirm_payment_from_browser_callback(
                     False,
                 )
             except Exception:
-                _log.exception("paystack callback resend failed session=%s", sid)
+                _log.exception("opay callback resend failed session=%s", sid)
         return (
             "Payment confirmed",
             f"Ref {display_ref}. Your payment is already recorded. Check your Kareconnect WhatsApp chat for video call instructions.",
@@ -1615,21 +1548,21 @@ def confirm_payment_from_browser_callback(
 
     paid, detail, _data = verify_transaction(ref)
     if not paid:
-        _log.warning("paystack browser callback verify failed session=%s ref=%s: %s", sid, ref, detail)
+        _log.warning("opay browser callback verify failed session=%s ref=%s: %s", sid, ref, detail)
         return (
             "Payment processing",
             f"Ref {display_ref}. {detail} If you completed payment, wait a minute and refresh this page, "
-            "or return to WhatsApp — instructions are sent automatically once Paystack confirms payment.",
+            "or return to WhatsApp — instructions are sent automatically once OPay confirms payment.",
             False,
         )
 
     try:
         on_payment_confirmed(sid, reference=ref)
     except Exception:
-        _log.exception("paystack browser callback confirm failed session=%s", sid)
+        _log.exception("opay browser callback confirm failed session=%s", sid)
         return (
             "Payment received",
-            f"Ref {display_ref}. Payment verified with Paystack but we could not send WhatsApp instructions automatically. "
+            f"Ref {display_ref}. Payment verified with OPay but we could not send WhatsApp instructions automatically. "
             "Return to your Kareconnect chat or contact support with this reference.",
             False,
         )
@@ -1640,30 +1573,21 @@ def confirm_payment_from_browser_callback(
     )
 
 
-def apply_paystack_webhook_event(event: dict[str, Any]) -> None:
-    event_name = (event.get("event") or "").strip()
-
-    if event_name == "dedicatedaccount.assign.success":
-        from app.paystack_billing import apply_dedicated_account_assigned
-
-        session_id = apply_dedicated_account_assigned(event)
-        if session_id:
-            deliver_payment_account_message(session_id)
-        return
-
-    if event_name != "charge.success":
+def apply_opay_webhook_event(event: dict[str, Any]) -> None:
+    data = event.get("payload") or {}
+    status = str(data.get("status") or "").strip().upper()
+    if status != "SUCCESS":
         return
     session_id = None
     try:
-        from app.paystack_billing import extract_session_id_from_event
+        from app.opay_billing import extract_session_id_from_event
 
         session_id = extract_session_id_from_event(event)
     except Exception:
-        _log.exception("paystack session_id extract failed")
+        _log.exception("opay session_id extract failed")
     if not session_id:
-        _log.warning("paystack charge.success: could not resolve telehealth session")
+        _log.warning("opay payment success: could not resolve telehealth session")
         return
-    data = event.get("data") or {}
     reference = data.get("reference")
     on_payment_confirmed(session_id, reference=str(reference) if reference else None)
 

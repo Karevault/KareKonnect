@@ -295,7 +295,7 @@ class PaymentSequencingTests(unittest.TestCase):
         session_id = self._make_synced_provider_and_session(fee_ngn=5000)
         with patch("app.karevault_telehealth_client.create_appointment") as mock_create, patch(
             "app.karevault_telehealth_client.telehealth_api_enabled", return_value=True
-        ), patch("app.paystack_billing.is_configured", return_value=False), patch(
+        ), patch("app.opay_billing.is_configured", return_value=False), patch(
             "app.telehealth._dispatch_booking_notifications"
         ):
             from app.telehealth import finalize_new_booking

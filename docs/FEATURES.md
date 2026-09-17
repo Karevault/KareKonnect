@@ -238,7 +238,7 @@ Interactive WhatsApp/SMS menu:
 2. Chooses a **specialty** (e.g. general practice, cardiology, gynaecology, dialysis)
 3. Sees **providers** with consultation fee and average rating
 4. Confirms with `YES` → session created
-5. Receives **Paystack payment link** (if fee > 0), waived-fee instructions, or call booking details
+5. Receives **OPay payment link** (if fee > 0), waived-fee instructions, or call booking details
 
 Navigation: `BACK`, `CANCEL`, `EXIT`.
 
@@ -251,10 +251,10 @@ Staff register providers with:
 - Active/inactive status
 - Masked phone display for patient privacy
 
-### Paystack billing
+### OPay billing
 
-- Checkout URL generated per session
-- Webhook `/webhooks/paystack` on `charge.success` marks session paid and notifies patient + provider
+- Hosted Cashier checkout URL generated per session
+- Webhook `/webhooks/opay` on a `SUCCESS` payment callback marks session paid and notifies patient + provider
 - Admin can manually mark a session paid (triggers post-payment message)
 
 ### Meta WhatsApp video calling
@@ -463,7 +463,7 @@ Configurable in admin (**Channel Settings**). Default behaviour:
 |------|-----------------|
 | **Test chat** | Simulate patient messages without webhooks |
 | **Webhooks reference** | Copy webhook URLs; run connectivity self-tests |
-| **Deployment & integrations** | Production URLs, Meta/Twilio/AT/Paystack/EHR credentials |
+| **Deployment & integrations** | Production URLs, Meta/Twilio/AT/OPay/EHR credentials |
 | **Channel settings** | Keywords, USSD text, help menu, voice toggles |
 | **Twilio delivery events** | Delivery receipt log |
 
@@ -500,7 +500,7 @@ Hidden admin routes smoke-test Meta Graph API, Twilio auth, Africa's Talking, an
 | `POST /webhooks/twilio/status` | Twilio delivery |
 | `POST /webhooks/africastalking/sms` | AT SMS |
 | `POST /webhooks/africastalking/ussd` | AT USSD |
-| `POST /webhooks/paystack` | Paystack payments |
+| `POST /webhooks/opay` | OPay payments |
 
 ### Outbound operator webhooks
 
@@ -521,7 +521,7 @@ JSON POST to `HC_OPERATOR_WEBHOOK_URL` for helpdesk and telehealth events.
 | **Marian NMT + FastText** | Pidgin translation and language ID (local models) |
 | **KareVault symptom checker** | AI symptom replies |
 | **KareVault EHR** | Patient records, clinical context, incidents, observations |
-| **Paystack** | Telehealth payments (NGN) |
+| **OPay** | Telehealth payments (NGN) |
 
 Credentials can be set via environment variables or overridden in admin (**Deployment & integrations**).
 
@@ -572,7 +572,7 @@ Patient (WhatsApp / SMS / USSD / Web)
         ├──► Marian ML (Pidgin)
         ├──► KareVault symptom checker
         ├──► KareVault EHR (Partner + Teleconsult APIs)
-        ├──► Paystack (telehealth billing)
+        ├──► OPay (telehealth billing)
         └──► Operator webhook (optional CRM)
 ```
 
