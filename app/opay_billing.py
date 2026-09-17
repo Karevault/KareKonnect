@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import logging
 import os
 import re
@@ -59,15 +58,13 @@ def _merchant_id() -> str:
     return (get_effective_integration().opay_merchant_id or "").strip()
 
 
-def _sign_request(payload: dict[str, Any]) -> str:
-    """HMAC-SHA512 over the payload JSON with keys sorted alphabetically."""
-    data = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hmac.new(_secret().encode("utf-8"), data.encode("utf-8"), hashlib.sha512).hexdigest()
-
-
-def _opay_headers(payload: dict[str, Any]) -> dict[str, str]:
+def _opay_headers() -> dict[str, str]:
+    # Cashier Create Payment and Cashier Payment Status both authenticate with the merchant's
+    # PUBLIC key as a plain bearer token — no request signing. (OPay's HMAC-SHA512 request
+    # signing scheme is only for the separate "Server Side APIs" family, which this integration
+    # does not use.)
     return {
-        "Authorization": f"Bearer {_sign_request(payload)}",
+        "Authorization": f"Bearer {_public_key()}",
         "MerchantId": _merchant_id(),
         "Content-Type": "application/json",
     }
@@ -119,7 +116,7 @@ def _opay_checkout_email(phone_e164: str) -> str:
 
 def _opay_post(url: str, payload: dict[str, Any]) -> tuple[bool, dict[str, Any], Optional[str]]:
     try:
-        resp = requests.post(url, json=payload, headers=_opay_headers(payload), timeout=25)
+        resp = requests.post(url, json=payload, headers=_opay_headers(), timeout=25)
     except requests.RequestException as exc:
         return False, {}, str(exc)
     try:
