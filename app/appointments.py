@@ -1094,8 +1094,15 @@ def handle_appointment_message(
             flow.updated_at = now_iso()
             if flow.visit_type == "telehealth":
                 video_step, video_menu = _video_entry_step_and_menu()
+                if video_menu is None:
+                    flow.visit_type = "in_person"
+                    flow.step = "preferred_date"
+                    return (
+                        "No video clinicians are listed. Let's book a clinic visit.\n\n"
+                        + _clinic_date_menu_text()
+                    )
                 flow.step = video_step
-                return video_menu or _profession_menu_text()
+                return video_menu
             if flow.visit_type == "in_person":
                 flow.step = "preferred_date"
                 return _clinic_date_menu_text()

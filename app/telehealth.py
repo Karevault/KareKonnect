@@ -2230,9 +2230,18 @@ def start_telehealth_flow(*, phone_e164: str) -> str:
 
     cancel_appointment_flow(phone_e164)
     live = telehealth_api_enabled()
+    if live:
+        has_options = bool(list_specialties_with_counts())
+        menu_text = _specialty_menu_text()
+    else:
+        has_options = any(item["count"] > 0 for item in list_professions_with_counts())
+        menu_text = _profession_menu_text()
     with session_scope() as s:
         flow = _get_flow(s, phone_e164)
-        flow.step = "specialty" if live else "profession"
+        # Don't park the patient in a menu step that has nothing to select — with no
+        # BACK available yet, only CANCEL would ever escape it and every other command
+        # (including free-text health questions) would be swallowed by this flow until then.
+        flow.step = ("specialty" if live else "profession") if has_options else "idle"
         flow.profession_code = None
         flow.selected_provider_id = None
         flow.selected_specialty = None
@@ -2241,7 +2250,7 @@ def start_telehealth_flow(*, phone_e164: str) -> str:
         flow.selected_slot_time = None
         flow.pending_session_id = None
         flow.updated_at = now_iso()
-    return _specialty_menu_text() if live else _profession_menu_text()
+    return menu_text
 
 
 def parse_rate_command(body: str, *, keyword: str = "RATE") -> tuple[Optional[int], Optional[str]]:
